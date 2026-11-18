@@ -125,7 +125,7 @@ struct TaskListView: View {
                 Text(t.title).font(.system(size: 15, weight: .semibold))
                     .foregroundStyle(ArtexTheme.text).lineLimit(1)
                 Spacer()
-                Pill(text: statusLabel(t.status), color: statusColor(t.status))
+                Pill(text: statusLabel(t.status), color: localStatusColor(t.status))
             }
             HStack(spacing: 10) {
                 Label("\(t.targets.count) 目标", systemImage: "scope")
@@ -161,7 +161,7 @@ struct TaskListView: View {
         }
     }
 
-    private func statusColor(_ s: String) -> Color {
+    private func localStatusColor(_ s: String) -> Color {
         switch s {
         case "running": return ArtexTheme.ok
         case "done": return ArtexTheme.low
