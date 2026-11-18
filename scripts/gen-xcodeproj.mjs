@@ -64,7 +64,7 @@ for (const f of files) {
   let kind = "sourcecode.swift";
   if (f.type === "assets") kind = "folder.assetcatalog";
   else if (f.type === "resource") kind = path.extname(f.rel) === ".json" ? "text.json" : "file";
-  p('\t\t' + fileRefs[f.rel] + " /* " + n + ' */ = {isa = PBXFileReference; lastKnownFileType = ' + kind + '; path = "' + n + '"; sourceTree = "<group>"; };');
+  p('\t\t' + fileRefs[f.rel] + " /* " + n + ' */ = {isa = PBXFileReference; lastKnownFileType = ' + kind + '; name = "' + n + '"; path = "' + APP + '/' + f.rel + '"; sourceTree = "SOURCE_ROOT"; };');
 }
 const appRef = uid();
 p("\t\t" + appRef + " /* " + APP + '.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = ' + APP + ".app; sourceTree = BUILT_PRODUCTS_DIR; };");
@@ -88,22 +88,11 @@ p("\t\t\t" + appGroup + " /* " + APP + " */,");
 p("\t\t\t" + appRef + " /* " + APP + ".app */,");
 p('\t\t); sourceTree = "<group>"; };');
 p("\t\t" + appGroup + " /* " + APP + " */ = {isa = PBXGroup; children = (");
-const dirs = Object.keys(groupsByDir).sort();
-for (const dir of dirs) {
-  if (dir === "" || dir.indexOf("/") >= 0) continue;
-  p("\t\t\t" + groupUid[dir] + " /* " + dir + " */,");
+for (const f of files) {
+  if (f.type === "plist") continue;
+  p("\t\t\t" + fileRefs[f.rel] + " /* " + path.basename(f.rel) + " */,");
 }
-for (const f of (groupsByDir[""] || [])) p("\t\t\t" + fileRefs[f.rel] + " /* " + path.basename(f.rel) + " */,");
-p('\t\t); path = "' + APP + '"; sourceTree = "SOURCE_ROOT"; };');
-for (const dir of dirs) {
-  if (dir === "") continue;
-  const name = path.basename(dir);
-  p("\t\t" + groupUid[dir] + " /* " + name + " */ = {isa = PBXGroup; children = (");
-  const childDirs = dirs.filter(function (d) { return d !== dir && path.dirname(d) === dir; });
-  for (const cd of childDirs) p("\t\t\t" + groupUid[cd] + " /* " + path.basename(cd) + " */,");
-  for (const f of groupsByDir[dir]) p("\t\t\t" + fileRefs[f.rel] + " /* " + path.basename(f.rel) + " */,");
-  p('\t\t); path = "' + APP + '/' + dir + '"; sourceTree = "SOURCE_ROOT"; };');
-}
+p('\t\t); name = "' + APP + '"; sourceTree = "<group>"; };');
 p("/* End PBXGroup section */");
 
 const appTarget = uid(), sourcesPhase = uid(), resourcesPhase = uid(), frameworksPhase = uid();

@@ -33,29 +33,29 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
-		000000000000000001000001 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = "Assets.xcassets"; sourceTree = "<group>"; };
-		000000000000000001000003 /* cve.sqlite.gz */ = {isa = PBXFileReference; lastKnownFileType = file; path = "cve.sqlite.gz"; sourceTree = "<group>"; };
-		000000000000000001000005 /* exploits.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "exploits.json"; sourceTree = "<group>"; };
-		000000000000000001000007 /* skills.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "skills.json"; sourceTree = "<group>"; };
-		000000000000000001000009 /* ArtExxApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ArtExxApp.swift"; sourceTree = "<group>"; };
-		00000000000000000100000B /* RootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "RootView.swift"; sourceTree = "<group>"; };
-		00000000000000000100000D /* ActivityStream.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ActivityStream.swift"; sourceTree = "<group>"; };
-		00000000000000000100000F /* APIClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "APIClient.swift"; sourceTree = "<group>"; };
-		000000000000000001000011 /* APIs.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "APIs.swift"; sourceTree = "<group>"; };
-		000000000000000001000013 /* ShellRunner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ShellRunner.swift"; sourceTree = "<group>"; };
-		000000000000000001000015 /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Theme.swift"; sourceTree = "<group>"; };
-		000000000000000001000017 /* CVEDatabase.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "CVEDatabase.swift"; sourceTree = "<group>"; };
-		000000000000000001000019 /* CVEPlaybook.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "CVEPlaybook.swift"; sourceTree = "<group>"; };
-		00000000000000000100001B /* Gzip.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Gzip.swift"; sourceTree = "<group>"; };
-		00000000000000000100001D /* SkillLibrary.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SkillLibrary.swift"; sourceTree = "<group>"; };
-		00000000000000000100001F /* ConsoleView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ConsoleView.swift"; sourceTree = "<group>"; };
-		000000000000000001000021 /* CVEView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "CVEView.swift"; sourceTree = "<group>"; };
-		000000000000000001000023 /* DashboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "DashboardView.swift"; sourceTree = "<group>"; };
-		000000000000000001000025 /* MoreViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MoreViews.swift"; sourceTree = "<group>"; };
-		000000000000000001000027 /* SkillLibraryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SkillLibraryView.swift"; sourceTree = "<group>"; };
-		000000000000000001000029 /* TaskDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "TaskDetailView.swift"; sourceTree = "<group>"; };
-		00000000000000000100002B /* TaskListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "TaskListView.swift"; sourceTree = "<group>"; };
-		00000000000000000100002D /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Models.swift"; sourceTree = "<group>"; };
+		000000000000000001000001 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; name = "Assets.xcassets"; path = "ARTEXX/Assets.xcassets"; sourceTree = "SOURCE_ROOT"; };
+		000000000000000001000003 /* cve.sqlite.gz */ = {isa = PBXFileReference; lastKnownFileType = file; name = "cve.sqlite.gz"; path = "ARTEXX/Resources/cve.sqlite.gz"; sourceTree = "SOURCE_ROOT"; };
+		000000000000000001000005 /* exploits.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; name = "exploits.json"; path = "ARTEXX/Resources/exploits.json"; sourceTree = "SOURCE_ROOT"; };
+		000000000000000001000007 /* skills.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; name = "skills.json"; path = "ARTEXX/Resources/skills.json"; sourceTree = "SOURCE_ROOT"; };
+		000000000000000001000009 /* ArtExxApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "ArtExxApp.swift"; path = "ARTEXX/Sources/App/ArtExxApp.swift"; sourceTree = "SOURCE_ROOT"; };
+		00000000000000000100000B /* RootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "RootView.swift"; path = "ARTEXX/Sources/App/RootView.swift"; sourceTree = "SOURCE_ROOT"; };
+		00000000000000000100000D /* ActivityStream.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "ActivityStream.swift"; path = "ARTEXX/Sources/Core/ActivityStream.swift"; sourceTree = "SOURCE_ROOT"; };
+		00000000000000000100000F /* APIClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "APIClient.swift"; path = "ARTEXX/Sources/Core/APIClient.swift"; sourceTree = "SOURCE_ROOT"; };
+		000000000000000001000011 /* APIs.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "APIs.swift"; path = "ARTEXX/Sources/Core/APIs.swift"; sourceTree = "SOURCE_ROOT"; };
+		000000000000000001000013 /* ShellRunner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "ShellRunner.swift"; path = "ARTEXX/Sources/Core/ShellRunner.swift"; sourceTree = "SOURCE_ROOT"; };
+		000000000000000001000015 /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "Theme.swift"; path = "ARTEXX/Sources/Core/Theme.swift"; sourceTree = "SOURCE_ROOT"; };
+		000000000000000001000017 /* CVEDatabase.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "CVEDatabase.swift"; path = "ARTEXX/Sources/Data/CVEDatabase.swift"; sourceTree = "SOURCE_ROOT"; };
+		000000000000000001000019 /* CVEPlaybook.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "CVEPlaybook.swift"; path = "ARTEXX/Sources/Data/CVEPlaybook.swift"; sourceTree = "SOURCE_ROOT"; };
+		00000000000000000100001B /* Gzip.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "Gzip.swift"; path = "ARTEXX/Sources/Data/Gzip.swift"; sourceTree = "SOURCE_ROOT"; };
+		00000000000000000100001D /* SkillLibrary.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "SkillLibrary.swift"; path = "ARTEXX/Sources/Data/SkillLibrary.swift"; sourceTree = "SOURCE_ROOT"; };
+		00000000000000000100001F /* ConsoleView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "ConsoleView.swift"; path = "ARTEXX/Sources/Features/ConsoleView.swift"; sourceTree = "SOURCE_ROOT"; };
+		000000000000000001000021 /* CVEView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "CVEView.swift"; path = "ARTEXX/Sources/Features/CVEView.swift"; sourceTree = "SOURCE_ROOT"; };
+		000000000000000001000023 /* DashboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "DashboardView.swift"; path = "ARTEXX/Sources/Features/DashboardView.swift"; sourceTree = "SOURCE_ROOT"; };
+		000000000000000001000025 /* MoreViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "MoreViews.swift"; path = "ARTEXX/Sources/Features/MoreViews.swift"; sourceTree = "SOURCE_ROOT"; };
+		000000000000000001000027 /* SkillLibraryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "SkillLibraryView.swift"; path = "ARTEXX/Sources/Features/SkillLibraryView.swift"; sourceTree = "SOURCE_ROOT"; };
+		000000000000000001000029 /* TaskDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "TaskDetailView.swift"; path = "ARTEXX/Sources/Features/TaskDetailView.swift"; sourceTree = "SOURCE_ROOT"; };
+		00000000000000000100002B /* TaskListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "TaskListView.swift"; path = "ARTEXX/Sources/Features/TaskListView.swift"; sourceTree = "SOURCE_ROOT"; };
+		00000000000000000100002D /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "Models.swift"; path = "ARTEXX/Sources/Models/Models.swift"; sourceTree = "SOURCE_ROOT"; };
 		00000000000000000100002F /* ARTEXX.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = ARTEXX.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -65,32 +65,21 @@
 			00000000000000000100002F /* ARTEXX.app */,
 		); sourceTree = "<group>"; };
 		000000000000000001000038 /* ARTEXX */ = {isa = PBXGroup; children = (
-			000000000000000001000031 /* Resources */,
 			000000000000000001000001 /* Assets.xcassets */,
-		); path = "ARTEXX"; sourceTree = "SOURCE_ROOT"; };
-		000000000000000001000031 /* Resources */ = {isa = PBXGroup; children = (
 			000000000000000001000003 /* cve.sqlite.gz */,
 			000000000000000001000005 /* exploits.json */,
 			000000000000000001000007 /* skills.json */,
-		); path = "ARTEXX/Resources"; sourceTree = "SOURCE_ROOT"; };
-		000000000000000001000032 /* App */ = {isa = PBXGroup; children = (
 			000000000000000001000009 /* ArtExxApp.swift */,
 			00000000000000000100000B /* RootView.swift */,
-		); path = "ARTEXX/Sources/App"; sourceTree = "SOURCE_ROOT"; };
-		000000000000000001000033 /* Core */ = {isa = PBXGroup; children = (
 			00000000000000000100000D /* ActivityStream.swift */,
 			00000000000000000100000F /* APIClient.swift */,
 			000000000000000001000011 /* APIs.swift */,
 			000000000000000001000013 /* ShellRunner.swift */,
 			000000000000000001000015 /* Theme.swift */,
-		); path = "ARTEXX/Sources/Core"; sourceTree = "SOURCE_ROOT"; };
-		000000000000000001000034 /* Data */ = {isa = PBXGroup; children = (
 			000000000000000001000017 /* CVEDatabase.swift */,
 			000000000000000001000019 /* CVEPlaybook.swift */,
 			00000000000000000100001B /* Gzip.swift */,
 			00000000000000000100001D /* SkillLibrary.swift */,
-		); path = "ARTEXX/Sources/Data"; sourceTree = "SOURCE_ROOT"; };
-		000000000000000001000035 /* Features */ = {isa = PBXGroup; children = (
 			00000000000000000100001F /* ConsoleView.swift */,
 			000000000000000001000021 /* CVEView.swift */,
 			000000000000000001000023 /* DashboardView.swift */,
@@ -98,10 +87,8 @@
 			000000000000000001000027 /* SkillLibraryView.swift */,
 			000000000000000001000029 /* TaskDetailView.swift */,
 			00000000000000000100002B /* TaskListView.swift */,
-		); path = "ARTEXX/Sources/Features"; sourceTree = "SOURCE_ROOT"; };
-		000000000000000001000036 /* Models */ = {isa = PBXGroup; children = (
 			00000000000000000100002D /* Models.swift */,
-		); path = "ARTEXX/Sources/Models"; sourceTree = "SOURCE_ROOT"; };
+		); name = "ARTEXX"; sourceTree = "<group>"; };
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
