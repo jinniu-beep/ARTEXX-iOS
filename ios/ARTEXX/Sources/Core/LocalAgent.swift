@@ -14,8 +14,8 @@ final class LocalAgent: ObservableObject {
     @Published var currentTask: String = ""
     @Published var lastError: String?
 
-    struct AgentStep: Identifiable, Hashable {
-        let id = UUID()
+    struct AgentStep: Identifiable, Hashable, Codable {
+        var id = UUID()
         var index: Int
         var role: String       // plan / tool / result / final
         var title: String
@@ -23,8 +23,8 @@ final class LocalAgent: ObservableObject {
         var ts: Date = Date()
     }
 
-    struct LocalFinding: Identifiable, Hashable {
-        let id = UUID()
+    struct LocalFinding: Identifiable, Hashable, Codable {
+        var id = UUID()
         var title: String
         var severity: String
         var asset: String
@@ -35,6 +35,9 @@ final class LocalAgent: ObservableObject {
 
     private var history: [LLMMessage] = []
     private var stepIndex = 0
+
+    /// 每推进一步就通知外部（任务库用来持久化）
+    var onUpdate: (([AgentStep], [LocalFinding], [String]) -> Void)?
 
     // MARK: - 系统提示词
     private var systemPrompt: String {
@@ -131,6 +134,7 @@ final class LocalAgent: ObservableObject {
                 if reply.toolCalls.isEmpty {
                     append(role: "final", title: "结论", detail: reply.content)
                     running = false
+                    onUpdate?(steps, findings, assets)
                     return
                 }
 
@@ -157,6 +161,7 @@ final class LocalAgent: ObservableObject {
     private func append(role: String, title: String, detail: String) {
         stepIndex += 1
         steps.append(AgentStep(index: stepIndex, role: role, title: title, detail: detail))
+        onUpdate?(steps, findings, assets)
     }
 
     // MARK: - 工具执行
@@ -237,6 +242,7 @@ final class LocalAgent: ObservableObject {
                 cveId: args["cve_id"] as? String
             )
             findings.append(f)
+            onUpdate?(steps, findings, assets)
             return "已记录：\(f.title)（\(f.severity)）@ \(f.asset)"
 
         case "list_assets":

@@ -20,17 +20,19 @@
 		00000000000000000100001E /* CVEDatabase.swift */ = {isa = PBXBuildFile; fileRef = 00000000000000000100001D /* CVEDatabase.swift */; };
 		000000000000000001000020 /* CVEPlaybook.swift */ = {isa = PBXBuildFile; fileRef = 00000000000000000100001F /* CVEPlaybook.swift */; };
 		000000000000000001000022 /* Gzip.swift */ = {isa = PBXBuildFile; fileRef = 000000000000000001000021 /* Gzip.swift */; };
-		000000000000000001000024 /* SkillLibrary.swift */ = {isa = PBXBuildFile; fileRef = 000000000000000001000023 /* SkillLibrary.swift */; };
-		000000000000000001000026 /* ConsoleView.swift */ = {isa = PBXBuildFile; fileRef = 000000000000000001000025 /* ConsoleView.swift */; };
-		000000000000000001000028 /* CVEView.swift */ = {isa = PBXBuildFile; fileRef = 000000000000000001000027 /* CVEView.swift */; };
-		00000000000000000100002A /* DashboardView.swift */ = {isa = PBXBuildFile; fileRef = 000000000000000001000029 /* DashboardView.swift */; };
-		00000000000000000100002C /* DiagnosticsView.swift */ = {isa = PBXBuildFile; fileRef = 00000000000000000100002B /* DiagnosticsView.swift */; };
-		00000000000000000100002E /* LocalScanView.swift */ = {isa = PBXBuildFile; fileRef = 00000000000000000100002D /* LocalScanView.swift */; };
-		000000000000000001000030 /* MoreViews.swift */ = {isa = PBXBuildFile; fileRef = 00000000000000000100002F /* MoreViews.swift */; };
-		000000000000000001000032 /* SkillLibraryView.swift */ = {isa = PBXBuildFile; fileRef = 000000000000000001000031 /* SkillLibraryView.swift */; };
-		000000000000000001000034 /* TaskDetailView.swift */ = {isa = PBXBuildFile; fileRef = 000000000000000001000033 /* TaskDetailView.swift */; };
-		000000000000000001000036 /* TaskListView.swift */ = {isa = PBXBuildFile; fileRef = 000000000000000001000035 /* TaskListView.swift */; };
-		000000000000000001000038 /* Models.swift */ = {isa = PBXBuildFile; fileRef = 000000000000000001000037 /* Models.swift */; };
+		000000000000000001000024 /* LocalTaskStore.swift */ = {isa = PBXBuildFile; fileRef = 000000000000000001000023 /* LocalTaskStore.swift */; };
+		000000000000000001000026 /* SkillLibrary.swift */ = {isa = PBXBuildFile; fileRef = 000000000000000001000025 /* SkillLibrary.swift */; };
+		000000000000000001000028 /* ConsoleView.swift */ = {isa = PBXBuildFile; fileRef = 000000000000000001000027 /* ConsoleView.swift */; };
+		00000000000000000100002A /* CVEView.swift */ = {isa = PBXBuildFile; fileRef = 000000000000000001000029 /* CVEView.swift */; };
+		00000000000000000100002C /* DashboardView.swift */ = {isa = PBXBuildFile; fileRef = 00000000000000000100002B /* DashboardView.swift */; };
+		00000000000000000100002E /* DiagnosticsView.swift */ = {isa = PBXBuildFile; fileRef = 00000000000000000100002D /* DiagnosticsView.swift */; };
+		000000000000000001000030 /* LocalScanView.swift */ = {isa = PBXBuildFile; fileRef = 00000000000000000100002F /* LocalScanView.swift */; };
+		000000000000000001000032 /* LocalTaskViews.swift */ = {isa = PBXBuildFile; fileRef = 000000000000000001000031 /* LocalTaskViews.swift */; };
+		000000000000000001000034 /* MoreViews.swift */ = {isa = PBXBuildFile; fileRef = 000000000000000001000033 /* MoreViews.swift */; };
+		000000000000000001000036 /* SkillLibraryView.swift */ = {isa = PBXBuildFile; fileRef = 000000000000000001000035 /* SkillLibraryView.swift */; };
+		000000000000000001000038 /* TaskDetailView.swift */ = {isa = PBXBuildFile; fileRef = 000000000000000001000037 /* TaskDetailView.swift */; };
+		00000000000000000100003A /* TaskListView.swift */ = {isa = PBXBuildFile; fileRef = 000000000000000001000039 /* TaskListView.swift */; };
+		00000000000000000100003C /* Models.swift */ = {isa = PBXBuildFile; fileRef = 00000000000000000100003B /* Models.swift */; };
 		000000000000000001000002 /* Assets.xcassets */ = {isa = PBXBuildFile; fileRef = 000000000000000001000001 /* Assets.xcassets */; };
 		000000000000000001000004 /* cve.sqlite.gz */ = {isa = PBXBuildFile; fileRef = 000000000000000001000003 /* cve.sqlite.gz */; };
 		000000000000000001000006 /* exploits.json */ = {isa = PBXBuildFile; fileRef = 000000000000000001000005 /* exploits.json */; };
@@ -55,26 +57,28 @@
 		00000000000000000100001D /* CVEDatabase.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "CVEDatabase.swift"; path = "ARTEXX/Sources/Data/CVEDatabase.swift"; sourceTree = "SOURCE_ROOT"; };
 		00000000000000000100001F /* CVEPlaybook.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "CVEPlaybook.swift"; path = "ARTEXX/Sources/Data/CVEPlaybook.swift"; sourceTree = "SOURCE_ROOT"; };
 		000000000000000001000021 /* Gzip.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "Gzip.swift"; path = "ARTEXX/Sources/Data/Gzip.swift"; sourceTree = "SOURCE_ROOT"; };
-		000000000000000001000023 /* SkillLibrary.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "SkillLibrary.swift"; path = "ARTEXX/Sources/Data/SkillLibrary.swift"; sourceTree = "SOURCE_ROOT"; };
-		000000000000000001000025 /* ConsoleView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "ConsoleView.swift"; path = "ARTEXX/Sources/Features/ConsoleView.swift"; sourceTree = "SOURCE_ROOT"; };
-		000000000000000001000027 /* CVEView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "CVEView.swift"; path = "ARTEXX/Sources/Features/CVEView.swift"; sourceTree = "SOURCE_ROOT"; };
-		000000000000000001000029 /* DashboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "DashboardView.swift"; path = "ARTEXX/Sources/Features/DashboardView.swift"; sourceTree = "SOURCE_ROOT"; };
-		00000000000000000100002B /* DiagnosticsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "DiagnosticsView.swift"; path = "ARTEXX/Sources/Features/DiagnosticsView.swift"; sourceTree = "SOURCE_ROOT"; };
-		00000000000000000100002D /* LocalScanView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "LocalScanView.swift"; path = "ARTEXX/Sources/Features/LocalScanView.swift"; sourceTree = "SOURCE_ROOT"; };
-		00000000000000000100002F /* MoreViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "MoreViews.swift"; path = "ARTEXX/Sources/Features/MoreViews.swift"; sourceTree = "SOURCE_ROOT"; };
-		000000000000000001000031 /* SkillLibraryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "SkillLibraryView.swift"; path = "ARTEXX/Sources/Features/SkillLibraryView.swift"; sourceTree = "SOURCE_ROOT"; };
-		000000000000000001000033 /* TaskDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "TaskDetailView.swift"; path = "ARTEXX/Sources/Features/TaskDetailView.swift"; sourceTree = "SOURCE_ROOT"; };
-		000000000000000001000035 /* TaskListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "TaskListView.swift"; path = "ARTEXX/Sources/Features/TaskListView.swift"; sourceTree = "SOURCE_ROOT"; };
-		000000000000000001000037 /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "Models.swift"; path = "ARTEXX/Sources/Models/Models.swift"; sourceTree = "SOURCE_ROOT"; };
-		000000000000000001000039 /* ARTEXX.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = ARTEXX.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		000000000000000001000023 /* LocalTaskStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "LocalTaskStore.swift"; path = "ARTEXX/Sources/Data/LocalTaskStore.swift"; sourceTree = "SOURCE_ROOT"; };
+		000000000000000001000025 /* SkillLibrary.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "SkillLibrary.swift"; path = "ARTEXX/Sources/Data/SkillLibrary.swift"; sourceTree = "SOURCE_ROOT"; };
+		000000000000000001000027 /* ConsoleView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "ConsoleView.swift"; path = "ARTEXX/Sources/Features/ConsoleView.swift"; sourceTree = "SOURCE_ROOT"; };
+		000000000000000001000029 /* CVEView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "CVEView.swift"; path = "ARTEXX/Sources/Features/CVEView.swift"; sourceTree = "SOURCE_ROOT"; };
+		00000000000000000100002B /* DashboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "DashboardView.swift"; path = "ARTEXX/Sources/Features/DashboardView.swift"; sourceTree = "SOURCE_ROOT"; };
+		00000000000000000100002D /* DiagnosticsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "DiagnosticsView.swift"; path = "ARTEXX/Sources/Features/DiagnosticsView.swift"; sourceTree = "SOURCE_ROOT"; };
+		00000000000000000100002F /* LocalScanView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "LocalScanView.swift"; path = "ARTEXX/Sources/Features/LocalScanView.swift"; sourceTree = "SOURCE_ROOT"; };
+		000000000000000001000031 /* LocalTaskViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "LocalTaskViews.swift"; path = "ARTEXX/Sources/Features/LocalTaskViews.swift"; sourceTree = "SOURCE_ROOT"; };
+		000000000000000001000033 /* MoreViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "MoreViews.swift"; path = "ARTEXX/Sources/Features/MoreViews.swift"; sourceTree = "SOURCE_ROOT"; };
+		000000000000000001000035 /* SkillLibraryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "SkillLibraryView.swift"; path = "ARTEXX/Sources/Features/SkillLibraryView.swift"; sourceTree = "SOURCE_ROOT"; };
+		000000000000000001000037 /* TaskDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "TaskDetailView.swift"; path = "ARTEXX/Sources/Features/TaskDetailView.swift"; sourceTree = "SOURCE_ROOT"; };
+		000000000000000001000039 /* TaskListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "TaskListView.swift"; path = "ARTEXX/Sources/Features/TaskListView.swift"; sourceTree = "SOURCE_ROOT"; };
+		00000000000000000100003B /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "Models.swift"; path = "ARTEXX/Sources/Models/Models.swift"; sourceTree = "SOURCE_ROOT"; };
+		00000000000000000100003D /* ARTEXX.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = ARTEXX.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
-		000000000000000001000041 = {isa = PBXGroup; children = (
-			000000000000000001000042 /* ARTEXX */,
-			000000000000000001000039 /* ARTEXX.app */,
+		000000000000000001000045 = {isa = PBXGroup; children = (
+			000000000000000001000046 /* ARTEXX */,
+			00000000000000000100003D /* ARTEXX.app */,
 		); sourceTree = "<group>"; };
-		000000000000000001000042 /* ARTEXX */ = {isa = PBXGroup; children = (
+		000000000000000001000046 /* ARTEXX */ = {isa = PBXGroup; children = (
 			000000000000000001000001 /* Assets.xcassets */,
 			000000000000000001000003 /* cve.sqlite.gz */,
 			000000000000000001000005 /* exploits.json */,
@@ -92,28 +96,30 @@
 			00000000000000000100001D /* CVEDatabase.swift */,
 			00000000000000000100001F /* CVEPlaybook.swift */,
 			000000000000000001000021 /* Gzip.swift */,
-			000000000000000001000023 /* SkillLibrary.swift */,
-			000000000000000001000025 /* ConsoleView.swift */,
-			000000000000000001000027 /* CVEView.swift */,
-			000000000000000001000029 /* DashboardView.swift */,
-			00000000000000000100002B /* DiagnosticsView.swift */,
-			00000000000000000100002D /* LocalScanView.swift */,
-			00000000000000000100002F /* MoreViews.swift */,
-			000000000000000001000031 /* SkillLibraryView.swift */,
-			000000000000000001000033 /* TaskDetailView.swift */,
-			000000000000000001000035 /* TaskListView.swift */,
-			000000000000000001000037 /* Models.swift */,
+			000000000000000001000023 /* LocalTaskStore.swift */,
+			000000000000000001000025 /* SkillLibrary.swift */,
+			000000000000000001000027 /* ConsoleView.swift */,
+			000000000000000001000029 /* CVEView.swift */,
+			00000000000000000100002B /* DashboardView.swift */,
+			00000000000000000100002D /* DiagnosticsView.swift */,
+			00000000000000000100002F /* LocalScanView.swift */,
+			000000000000000001000031 /* LocalTaskViews.swift */,
+			000000000000000001000033 /* MoreViews.swift */,
+			000000000000000001000035 /* SkillLibraryView.swift */,
+			000000000000000001000037 /* TaskDetailView.swift */,
+			000000000000000001000039 /* TaskListView.swift */,
+			00000000000000000100003B /* Models.swift */,
 		); name = "ARTEXX"; sourceTree = "<group>"; };
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		000000000000000001000043 /* ARTEXX */ = {
+		000000000000000001000047 /* ARTEXX */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 000000000000000001000049 /* target config list */;
+			buildConfigurationList = 00000000000000000100004D /* target config list */;
 			buildPhases = (
-				000000000000000001000044 /* Sources */,
-				000000000000000001000046 /* Frameworks */,
-				000000000000000001000045 /* Resources */,
+				000000000000000001000048 /* Sources */,
+				00000000000000000100004A /* Frameworks */,
+				000000000000000001000049 /* Resources */,
 			);
 			buildRules = (
 			);
@@ -121,23 +127,23 @@
 			);
 			name = ARTEXX;
 			productName = ARTEXX;
-			productReference = 000000000000000001000039 /* ARTEXX.app */;
+			productReference = 00000000000000000100003D /* ARTEXX.app */;
 			productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
-		000000000000000001000047 /* Project object */ = {
+		00000000000000000100004B /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
 				BuildIndependentTargetsInParallel = 1;
 				LastSwiftUpdateCheck = 1500;
 				LastUpgradeCheck = 1500;
 				TargetAttributes = {
-					000000000000000001000043 = { CreatedOnToolsVersion = 15.0; };
+					000000000000000001000047 = { CreatedOnToolsVersion = 15.0; };
 				};
 			};
-			buildConfigurationList = 000000000000000001000048 /* project config list */;
+			buildConfigurationList = 00000000000000000100004C /* project config list */;
 			compatibilityVersion = "Xcode 14.0";
 			developmentRegion = zh_CN;
 			hasScannedForEncodings = 0;
@@ -146,18 +152,18 @@
 				en,
 				Base,
 			);
-			mainGroup = 000000000000000001000041;
-			productRefGroup = 000000000000000001000041;
+			mainGroup = 000000000000000001000045;
+			productRefGroup = 000000000000000001000045;
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				000000000000000001000043 /* ARTEXX */,
+				000000000000000001000047 /* ARTEXX */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXSourcesBuildPhase section */
-		000000000000000001000044 /* Sources */ = {
+		000000000000000001000048 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -174,24 +180,26 @@
 				00000000000000000100001E /* CVEDatabase.swift in Sources */,
 				000000000000000001000020 /* CVEPlaybook.swift in Sources */,
 				000000000000000001000022 /* Gzip.swift in Sources */,
-				000000000000000001000024 /* SkillLibrary.swift in Sources */,
-				000000000000000001000026 /* ConsoleView.swift in Sources */,
-				000000000000000001000028 /* CVEView.swift in Sources */,
-				00000000000000000100002A /* DashboardView.swift in Sources */,
-				00000000000000000100002C /* DiagnosticsView.swift in Sources */,
-				00000000000000000100002E /* LocalScanView.swift in Sources */,
-				000000000000000001000030 /* MoreViews.swift in Sources */,
-				000000000000000001000032 /* SkillLibraryView.swift in Sources */,
-				000000000000000001000034 /* TaskDetailView.swift in Sources */,
-				000000000000000001000036 /* TaskListView.swift in Sources */,
-				000000000000000001000038 /* Models.swift in Sources */,
+				000000000000000001000024 /* LocalTaskStore.swift in Sources */,
+				000000000000000001000026 /* SkillLibrary.swift in Sources */,
+				000000000000000001000028 /* ConsoleView.swift in Sources */,
+				00000000000000000100002A /* CVEView.swift in Sources */,
+				00000000000000000100002C /* DashboardView.swift in Sources */,
+				00000000000000000100002E /* DiagnosticsView.swift in Sources */,
+				000000000000000001000030 /* LocalScanView.swift in Sources */,
+				000000000000000001000032 /* LocalTaskViews.swift in Sources */,
+				000000000000000001000034 /* MoreViews.swift in Sources */,
+				000000000000000001000036 /* SkillLibraryView.swift in Sources */,
+				000000000000000001000038 /* TaskDetailView.swift in Sources */,
+				00000000000000000100003A /* TaskListView.swift in Sources */,
+				00000000000000000100003C /* Models.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXResourcesBuildPhase section */
-		000000000000000001000045 /* Resources */ = {
+		000000000000000001000049 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -205,7 +213,7 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXFrameworksBuildPhase section */
-		000000000000000001000046 /* Frameworks */ = {
+		00000000000000000100004A /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -215,7 +223,7 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin XCBuildConfiguration section */
-		00000000000000000100004A /* Debug */ = {
+		00000000000000000100004E /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
@@ -231,7 +239,7 @@
 			};
 			name = Debug;
 		};
-		00000000000000000100004B /* Release */ = {
+		00000000000000000100004F /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
@@ -249,7 +257,7 @@
 			};
 			name = Release;
 		};
-		00000000000000000100004C /* Debug */ = {
+		000000000000000001000050 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
@@ -274,7 +282,7 @@
 			};
 			name = Debug;
 		};
-		00000000000000000100004D /* Release */ = {
+		000000000000000001000051 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
@@ -301,25 +309,25 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		000000000000000001000048 /* project */ = {
+		00000000000000000100004C /* project */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				00000000000000000100004A /* Debug */,
-				00000000000000000100004B /* Release */,
+				00000000000000000100004E /* Debug */,
+				00000000000000000100004F /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		000000000000000001000049 /* target */ = {
+		00000000000000000100004D /* target */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				00000000000000000100004C /* Debug */,
-				00000000000000000100004D /* Release */,
+				000000000000000001000050 /* Debug */,
+				000000000000000001000051 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
 	};
-	rootObject = 000000000000000001000047 /* Project object */;
+	rootObject = 00000000000000000100004B /* Project object */;
 }

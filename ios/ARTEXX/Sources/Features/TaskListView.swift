@@ -2,7 +2,9 @@ import SwiftUI
 
 struct TaskListView: View {
     @EnvironmentObject var store: AppStore
+    @ObservedObject private var localStore = LocalTaskStore.shared
     @State private var tasks: [TaskItem] = []
+    @State private var showNewLocal = false
     @State private var loading = false
     @State private var showNew = false
     @State private var filter = "全部"
@@ -12,7 +14,7 @@ struct TaskListView: View {
     var body: some View {
         NavigationStack {
             if store.offlineMode {
-                OfflineNotice(what: "任务列表")
+                localList
             } else {
             VStack(spacing: 0) {
                 ScrollView(.horizontal, showsIndicators: false) {
@@ -58,7 +60,9 @@ struct TaskListView: View {
             .navigationTitle("任务")
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    Button { showNew = true } label: { Image(systemName: "plus") }
+                    Button {
+                        if store.offlineMode { showNewLocal = true } else { showNew = true }
+                    } label: { Image(systemName: "plus") }
                 }
                 ToolbarItem(placement: .navigationBarLeading) {
                     Button { Task { await load() } } label: { Image(systemName: "arrow.clockwise") }
@@ -67,8 +71,103 @@ struct TaskListView: View {
             .sheet(isPresented: $showNew) {
                 NewTaskView { await load() }
             }
-            .task { await load() }
+            .sheet(isPresented: $showNewLocal) {
+                NewLocalTaskView()
             }
+            .task { if !store.offlineMode { await load() } }
+            }
+        }
+    }
+
+    /// 离线模式下的本地任务列表（真正可用）
+    private var localList: some View {
+        VStack(spacing: 0) {
+            OfflineBadge()
+            if localStore.tasks.isEmpty {
+                VStack(spacing: 16) {
+                    EmptyHint(text: "还没有本地任务。\n点右上角 + 建一个，Agent 会用手机网络直接跑。")
+                    if !LLMClient.shared.config.ready {
+                        NavigationLink { LLMConfigView() } label: {
+                            Text("先配置模型 API Key")
+                                .font(.system(size: 13, weight: .semibold))
+                                .padding(.horizontal, 18).padding(.vertical, 10)
+                                .background(ArtexTheme.accent).foregroundStyle(.black)
+                                .clipShape(Capsule())
+                        }
+                    }
+                    Spacer()
+                }
+            } else {
+                List {
+                    ForEach(localStore.tasks) { task in
+                        NavigationLink {
+                            LocalTaskDetailView(taskID: task.id)
+                        } label: {
+                            localRow(task)
+                        }
+                        .listRowBackground(ArtexTheme.surface)
+                        .swipeActions(edge: .trailing) {
+                            Button(role: .destructive) {
+                                localStore.delete(task.id)
+                            } label: { Label("删除", systemImage: "trash") }
+                        }
+                    }
+                }
+                .scrollContentBackground(.hidden)
+            }
+        }
+    }
+
+    private func localRow(_ t: LocalTask) -> some View {
+        let sev = t.severityCount
+        return VStack(alignment: .leading, spacing: 6) {
+            HStack {
+                Text(t.title).font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(ArtexTheme.text).lineLimit(1)
+                Spacer()
+                Pill(text: statusLabel(t.status), color: statusColor(t.status))
+            }
+            HStack(spacing: 10) {
+                Label("\(t.targets.count) 目标", systemImage: "scope")
+                Label("\(t.steps.count) 步", systemImage: "list.number")
+                if !t.findings.isEmpty {
+                    Label("\(t.findings.count) 发现", systemImage: "exclamationmark.triangle")
+                }
+                Text(t.updatedAt.formatted(date: .omitted, time: .shortened))
+            }
+            .font(.system(size: 10, design: .monospaced)).foregroundStyle(ArtexTheme.dim)
+            if sev.critical + sev.high > 0 {
+                HStack(spacing: 6) {
+                    if sev.critical > 0 { Pill(text: "C \(sev.critical)", color: ArtexTheme.critical) }
+                    if sev.high > 0 { Pill(text: "H \(sev.high)", color: ArtexTheme.high) }
+                    if sev.medium > 0 { Pill(text: "M \(sev.medium)", color: ArtexTheme.medium) }
+                }
+            }
+            if !t.objective.isEmpty {
+                Text(t.objective).font(.system(size: 11)).foregroundStyle(ArtexTheme.dim).lineLimit(2)
+            }
+        }
+        .padding(.vertical, 4)
+    }
+
+    private func statusLabel(_ s: String) -> String {
+        switch s {
+        case "pending": return "待运行"
+        case "running": return "运行中"
+        case "done": return "已完成"
+        case "failed": return "失败"
+        case "stopped": return "已停止"
+        default: return s
+        }
+    }
+
+    private func statusColor(_ s: String) -> Color {
+        switch s {
+        case "running": return ArtexTheme.ok
+        case "done": return ArtexTheme.low
+        case "failed": return ArtexTheme.critical
+        case "stopped": return ArtexTheme.medium
+        default: return ArtexTheme.dim
         }
     }
 
