@@ -362,3 +362,31 @@ struct OfflineBadge: View {
         }
     }
 }
+
+
+/// 兼容别名：旧代码用 MetricTile，映射到 StatCard 风格
+struct MetricTile: View {
+    var label: String
+    var value: String
+    var tint: Color = ArtexTheme.text
+
+    init(label: String, value: String, tint: Color = ArtexTheme.text) {
+        self.label = label; self.value = value; self.tint = tint
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 3) {
+            Text(label).font(.system(size: 10)).foregroundStyle(ArtexTheme.dim)
+            Text(value)
+                .font(.system(size: 22, weight: .semibold))
+                .foregroundStyle(tint)
+                .monospacedDigit()
+                .lineLimit(1).minimumScaleFactor(0.6)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, 12).padding(.vertical, 10)
+        .background(ArtexTheme.surface)
+        .overlay(RoundedRectangle(cornerRadius: ArtexTheme.radius).stroke(ArtexTheme.border, lineWidth: 1))
+        .clipShape(RoundedRectangle(cornerRadius: ArtexTheme.radius))
+    }
+}
