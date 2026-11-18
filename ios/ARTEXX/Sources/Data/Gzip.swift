@@ -1,44 +1,38 @@
 import Foundation
 import Compression
 
-/// gzip 解压：流式写入目标文件，内存占用恒定（约 1MB），
-/// 避免 78MB gz → 395MB sqlite 时一次性驻留内存被系统杀掉。
+/// gzip 解压：标准流式循环，内存占用恒定（<2MB），
+/// 避免 78MB gz → 395MB sqlite 一次性驻留内存被系统杀掉。
 enum Gzip {
 
-    /// 把 gzip 数据解压到指定文件。返回解压后的字节数。
+    enum GzipError: LocalizedError {
+        case openInput, openOutput, badHeader, stream, shortOutput
+        var errorDescription: String? {
+            switch self {
+            case .openInput: return "无法读取内置压缩包"
+            case .openOutput: return "无法写入解压文件"
+            case .badHeader: return "压缩包格式不正确"
+            case .stream: return "解压过程失败"
+            case .shortOutput: return "解压结果不完整"
+            }
+        }
+    }
+
+    /// 把 gzip 文件流式解压到目标路径，返回解压字节数。
     @discardableResult
     static func decompress(_ source: URL, to destination: URL) throws -> Int64 {
         guard let input = InputStream(url: source) else { throw GzipError.openInput }
         input.open()
         defer { input.close() }
 
-        // 读 gzip 头，跳过可选字段，拿到 deflate 起点
-        var header = [UInt8](repeating: 0, count: 10)
-        var got = 0
-        while got < 10 {
-            let n = input.read(&header[got], maxLength: 10 - got)
-            if n <= 0 { throw GzipError.badHeader }
-            got += n
-        }
-        guard header[0] == 0x1f, header[1] == 0x8b, header[2] == 0x08 else { throw GzipError.badHeader }
-        let flg = header[3]
-        if flg & 0x04 != 0 { // FEXTRA
-            var xlen = [UInt8](repeating: 0, count: 2)
-            guard input.read(&xlen, maxLength: 2) == 2 else { throw GzipError.badHeader }
-            let len = Int(xlen[0]) | (Int(xlen[1]) << 8)
-            var skip = [UInt8](repeating: 0, count: len)
-            guard input.read(&skip, maxLength: len) == len else { throw GzipError.badHeader }
-        }
-        if flg & 0x08 != 0 { try skipZeroTerminated(input) } // FNAME
-        if flg & 0x10 != 0 { try skipZeroTerminated(input) } // FCOMMENT
-        if flg & 0x02 != 0 { // FHCRC
-            var crc = [UInt8](repeating: 0, count: 2)
-            guard input.read(&crc, maxLength: 2) == 2 else { throw GzipError.badHeader }
-        }
+        try consumeHeader(input)
 
-        // 目标文件
-        FileManager.default.createFile(atPath: destination.path, contents: nil)
-        guard let output = FileHandle(forWritingAtPath: destination.path) else { throw GzipError.openOutput }
+        // 先清掉可能存在的半截文件
+        try? FileManager.default.removeItem(at: destination)
+        guard FileManager.default.createFile(atPath: destination.path, contents: nil),
+              let output = FileHandle(forWritingAtPath: destination.path) else {
+            throw GzipError.openOutput
+        }
         defer { try? output.close() }
 
         var stream = compression_stream(
@@ -53,62 +47,89 @@ enum Gzip {
         }
         defer { compression_stream_destroy(&stream) }
 
-        let inSize = 1 << 18          // 256 KB 读入
-        let outSize = 1 << 20         // 1 MB 输出
+        let inSize = 1 << 18     // 256 KB
+        let outSize = 1 << 20    // 1 MB
         var inBuf = [UInt8](repeating: 0, count: inSize)
         var outBuf = [UInt8](repeating: 0, count: outSize)
         var total: Int64 = 0
-        var status = COMPRESSION_STATUS_OK
+        var inputEOF = false
+        var done = false
 
-        repeat {
-            let read = input.read(&inBuf, maxLength: inSize)
-            if read < 0 { throw GzipError.stream }
-            let eof = read == 0
-            stream.src_ptr = inBuf.withUnsafeBufferPointer { $0.baseAddress! }
-            stream.src_size = read
-
-            repeat {
-                let produced = outBuf.withUnsafeMutableBufferPointer { dst -> Int in
-                    stream.dst_ptr = dst.baseAddress!
-                    stream.dst_size = outSize
-                    let flags = eof ? Int32(COMPRESSION_STREAM_FINALIZE.rawValue) : 0
-                    let rc = compression_stream_process(&stream, flags)
-                    if rc == COMPRESSION_STATUS_ERROR { return -1 }
-                    status = rc
-                    return outSize - stream.dst_size
+        while !done {
+            // 1) 需要更多输入就去读
+            if stream.src_size == 0 && !inputEOF {
+                let n = input.read(&inBuf, maxLength: inSize)
+                if n < 0 { throw GzipError.stream }
+                if n == 0 {
+                    inputEOF = true
+                } else {
+                    inBuf.withUnsafeBufferPointer { buf in
+                        stream.src_ptr = buf.baseAddress!
+                        stream.src_size = n
+                    }
                 }
-                if produced < 0 { throw GzipError.stream }
-                if produced > 0 {
-                    let chunk = Data(bytes: outBuf, count: produced)
-                    try output.write(contentsOf: chunk)
-                    total += Int64(produced)
-                }
-                // 输入耗尽且没有新输出 → 本轮结束
-                if stream.src_size == 0 && produced == 0 { break }
-            } while stream.src_size > 0 || (eof && status != COMPRESSION_STATUS_END)
-
-            if eof && status == COMPRESSION_STATUS_END { break }
-            if eof && status != COMPRESSION_STATUS_END {
-                // FINALIZE 后仍非 END：再推一轮空输入
-                var produced = outBuf.withUnsafeMutableBufferPointer { dst -> Int in
-                    stream.dst_ptr = dst.baseAddress!
-                    stream.dst_size = outSize
-                    let rc = compression_stream_process(&stream, Int32(COMPRESSION_STREAM_FINALIZE.rawValue))
-                    if rc == COMPRESSION_STATUS_ERROR { return -1 }
-                    status = rc
-                    return outSize - stream.dst_size
-                }
-                if produced < 0 { throw GzipError.stream }
-                if produced > 0 {
-                    try output.write(contentsOf: Data(bytes: outBuf, count: produced))
-                    total += Int64(produced)
-                }
-                if status == COMPRESSION_STATUS_END { break }
             }
-        } while status != COMPRESSION_STATUS_END && total >= 0
+
+            // 2) 解压一轮
+            outBuf.withUnsafeMutableBufferPointer { dst in
+                stream.dst_ptr = dst.baseAddress!
+                stream.dst_size = outSize
+            }
+            let flags = Int32(COMPRESSION_STREAM_FINALIZE.rawValue)
+            let rc = compression_stream_process(&stream, inputEOF ? flags : 0)
+
+            if rc == COMPRESSION_STATUS_ERROR { throw GzipError.stream }
+
+            let produced = outSize - stream.dst_size
+            if produced > 0 {
+                let chunk = Data(bytes: outBuf, count: produced)
+                try output.write(contentsOf: chunk)
+                total += Int64(produced)
+            }
+
+            if rc == COMPRESSION_STATUS_END { done = true; break }
+
+            // 3) 没有进展且输入也没了 → 结束（防止死循环）
+            if produced == 0 && stream.src_size == 0 && inputEOF { done = true }
+        }
 
         try output.synchronize()
+        if total <= 0 { throw GzipError.shortOutput }
         return total
+    }
+
+    /// 跳过 RFC1952 头部（含可选字段）
+    private static func consumeHeader(_ input: InputStream) throws {
+        var header = [UInt8](repeating: 0, count: 10)
+        var got = 0
+        while got < 10 {
+            let n = input.read(&header[got], maxLength: 10 - got)
+            if n <= 0 { throw GzipError.badHeader }
+            got += n
+        }
+        guard header[0] == 0x1f, header[1] == 0x8b, header[2] == 0x08 else { throw GzipError.badHeader }
+        let flg = header[3]
+
+        if flg & 0x04 != 0 { // FEXTRA
+            var xlen = [UInt8](repeating: 0, count: 2)
+            guard input.read(&xlen, maxLength: 2) == 2 else { throw GzipError.badHeader }
+            let len = Int(xlen[0]) | (Int(xlen[1]) << 8)
+            guard len > 0 else { return }
+            var skipped = 0
+            var buf = [UInt8](repeating: 0, count: min(len, 4096))
+            while skipped < len {
+                let want = min(4096, len - skipped)
+                let n = input.read(&buf, maxLength: want)
+                if n <= 0 { throw GzipError.badHeader }
+                skipped += n
+            }
+        }
+        if flg & 0x08 != 0 { try skipZeroTerminated(input) } // FNAME
+        if flg & 0x10 != 0 { try skipZeroTerminated(input) } // FCOMMENT
+        if flg & 0x02 != 0 {                                  // FHCRC
+            var crc = [UInt8](repeating: 0, count: 2)
+            guard input.read(&crc, maxLength: 2) == 2 else { throw GzipError.badHeader }
+        }
     }
 
     private static func skipZeroTerminated(_ input: InputStream) throws {
@@ -120,17 +141,5 @@ enum Gzip {
             if guardCount > 65536 { throw GzipError.badHeader }
         }
         throw GzipError.badHeader
-    }
-
-    enum GzipError: LocalizedError {
-        case openInput, openOutput, badHeader, stream
-        var errorDescription: String? {
-            switch self {
-            case .openInput: return "无法读取内置压缩包"
-            case .openOutput: return "无法写入解压文件"
-            case .badHeader: return "压缩包格式不正确"
-            case .stream: return "解压过程失败"
-            }
-        }
     }
 }

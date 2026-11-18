@@ -69,11 +69,17 @@ final class CVEDatabase: ObservableObject {
 
     private func open(_ target: URL) -> Result<Void, Error> {
         if sqlite3_open_v2(target.path, &handle, SQLITE_OPEN_READONLY, nil) != SQLITE_OK {
+            handle = nil
+            try? FileManager.default.removeItem(at: target)
             return .failure(Gzip.GzipError.openOutput)
         }
-        // 只读 + 不建临时表，避免首次查询卡顿
-        sqlite3_exec(handle, "PRAGMA query_only=1; PRAGMA cache_size=-8000; PRAGMA mmap_size=268435456;", nil, nil, nil)
-        totalRows = scalarInt("SELECT count(*) FROM cve") ?? 0
+        sqlite3_exec(handle, "PRAGMA query_only=1; PRAGMA cache_size=-8000;", nil, nil, nil)
+        let count = scalarInt("SELECT count(*) FROM cve") ?? 0
+        guard count > 0 else {
+            try? FileManager.default.removeItem(at: target)
+            return .failure(Gzip.GzipError.shortOutput)
+        }
+        totalRows = count
         ready = true
         NSLog("[ARTEXX] CVE 库就绪，共 \(totalRows) 条")
         return .success(Void())
