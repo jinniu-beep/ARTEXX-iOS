@@ -14,6 +14,7 @@ struct RootView: View {
                 LoginView()
             } else {
                 TabView(selection: $tab) {
+                    LocalScanView().tabItem { Label("本地扫描", systemImage: "dot.radiowaves.left.and.right") }.tag(6)
                     DashboardView().tabItem { Label("仪表盘", systemImage: "gauge.with.dots.needle.67percent") }.tag(0)
                     TaskListView().tabItem { Label("任务", systemImage: "target") }.tag(1)
                     SkillLibraryView().tabItem { Label("技能库", systemImage: "square.stack.3d.up") }.tag(2)

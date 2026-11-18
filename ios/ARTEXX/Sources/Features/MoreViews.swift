@@ -7,6 +7,8 @@ struct MoreView: View {
         NavigationStack {
             List {
                 Section("功能") {
+                    NavigationLink("本地扫描（手机直连）", destination: LocalScanView())
+                    NavigationLink("模型配置", destination: LLMConfigView())
                     NavigationLink("对话", destination: ChatListView())
                     NavigationLink("发现", destination: FindingsView())
                     NavigationLink("资产", destination: AssetsView())
