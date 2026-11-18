@@ -1,0 +1,28 @@
+{
+  "name": "artexx-ios",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jinniu-beep/ARTEXX-iOS.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/jinniu-beep/ARTEXX-iOS/issues"
+  },
+  "homepage": "https://github.com/jinniu-beep/ARTEXX-iOS#readme",
+  "dependencies": {
+    "tree-sitter": "^0.22.4",
+    "tree-sitter-swift": "^0.7.1"
+  }
+}

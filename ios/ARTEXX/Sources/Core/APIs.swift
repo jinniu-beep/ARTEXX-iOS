@@ -28,7 +28,7 @@ enum AuthAPI {
 }
 
 enum TaskAPI {
-    static func list() async throws -> [TaskItem] { try await APIClient.shared.list("tasks", as: TaskItem.self) }
+    static func list() async throws -> [TaskItem] { try await APIClient.shared.list("tasks", as: TaskItem.self) as [TaskItem] }
     static func detail(_ id: Int64) async throws -> [String: AnyJSON] { try await APIClient.shared.dict("tasks/\(id)") }
     static func create(title: String, objective: String, scope: [String]) async throws -> [String: AnyJSON] {
         let data = try await APIClient.shared.raw(path: "tasks", method: "POST",
@@ -95,7 +95,7 @@ enum OpsAPI {
 }
 
 enum LLMAPI {
-    static func profiles() async throws -> [LLMProfile] { try await APIClient.shared.list("llm/profiles", as: LLMProfile.self) }
+    static func profiles() async throws -> [LLMProfile] { try await APIClient.shared.list("llm/profiles", as: LLMProfile.self) as [LLMProfile] }
     static func saveProfile(_ json: [String: Any]) async throws {
         _ = try await APIClient.shared.raw(path: "llm/profiles", method: "POST", json: json)
     }
@@ -114,8 +114,8 @@ enum LLMAPI {
 }
 
 enum AgentAPI {
-    static func list() async throws -> [AgentItem] { try await APIClient.shared.list("agents", as: AgentItem.self) }
-    static func tools() async throws -> [ToolItem] { try await APIClient.shared.list("tools", as: ToolItem.self) }
+    static func list() async throws -> [AgentItem] { try await APIClient.shared.list("agents", as: AgentItem.self) as [AgentItem] }
+    static func tools() async throws -> [ToolItem] { try await APIClient.shared.list("tools", as: ToolItem.self) as [ToolItem] }
     static func toggleTool(_ key: String, enabled: Bool) async throws {
         _ = try await APIClient.shared.raw(path: "tools/\(key)", method: "PUT", json: ["enabled": enabled])
     }
@@ -133,10 +133,10 @@ enum AgentAPI {
 
 enum ChatAPI {
     static func conversations() async throws -> [ConversationItem] {
-        try await APIClient.shared.list("conversations", as: ConversationItem.self)
+        try await APIClient.shared.list("conversations", as: ConversationItem.self) as [ConversationItem]
     }
     static func messages(_ id: Int64) async throws -> [ChatMessage] {
-        try await APIClient.shared.list("conversations/\(id)/messages", as: ChatMessage.self)
+        try await APIClient.shared.list("conversations/\(id)/messages", as: ChatMessage.self) as [ChatMessage]
     }
     static func send(_ id: Int64, text: String) async throws {
         _ = try await APIClient.shared.raw(path: "conversations/\(id)/messages", method: "POST", json: ["content": text])

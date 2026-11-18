@@ -109,7 +109,7 @@ struct FindingsView: View {
                         Text(f.created_at?.text ?? "").font(.system(size: 10)).foregroundStyle(ArtexTheme.dim)
                     }
                     Text(f.displayTitle).font(.system(size: 13)).foregroundStyle(ArtexTheme.text)
-                    if let a = f.asset ?? f.url { Text(a).font(.system(size: 10, design: .monospaced)).foregroundStyle(ArtexTheme.dim) }
+                    if let a = (f.asset ?? f.url), !a.isEmpty { Text(a).font(.system(size: 10, design: .monospaced)).foregroundStyle(ArtexTheme.dim) }
                 }
             }.listRowBackground(ArtexTheme.surface)
         }

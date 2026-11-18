@@ -324,7 +324,10 @@ final class Interpreter {
 enum DNS {
     static func resolve(_ host: String) -> String {
         var out: [String] = []
-        var hints = addrinfo(ai_flags: 0, ai_family: AF_UNSPEC, ai_socktype: SOCK_STREAM, ai_protocol: 0, ai_addrlen: 0, ai_canonname: nil, ai_addr: nil, ai_next: nil)
+        var hints = addrinfo()
+        hints.ai_family = AF_UNSPEC
+        hints.ai_socktype = SOCK_STREAM
+        hints.ai_protocol = 0
         var res: UnsafeMutablePointer<addrinfo>? = nil
         let rc = getaddrinfo(host, nil, &hints, &res)
         if rc != 0 { return "解析失败: \(String(cString: gai_strerror(rc)))" }
@@ -353,7 +356,10 @@ enum TCPProbe {
 
     static func check(_ target: String) -> String {
         guard let (host, port) = split(target) else { return "格式错误，应为 host:port" }
-        var hints = addrinfo(ai_flags: 0, ai_family: AF_UNSPEC, ai_socktype: SOCK_STREAM, ai_protocol: 0, ai_addrlen: 0, ai_canonname: nil, ai_addr: nil, ai_next: nil)
+        var hints = addrinfo()
+        hints.ai_family = AF_UNSPEC
+        hints.ai_socktype = SOCK_STREAM
+        hints.ai_protocol = 0
         var res: UnsafeMutablePointer<addrinfo>? = nil
         guard getaddrinfo(host, String(port), &hints, &res) == 0, let info = res else { return "解析失败" }
         defer { freeaddrinfo(res) }
@@ -368,7 +374,10 @@ enum TCPProbe {
 
     static func banner(_ target: String) -> String {
         guard let (host, port) = split(target) else { return "格式错误，应为 host:port" }
-        var hints = addrinfo(ai_flags: 0, ai_family: AF_UNSPEC, ai_socktype: SOCK_STREAM, ai_protocol: 0, ai_addrlen: 0, ai_canonname: nil, ai_addr: nil, ai_next: nil)
+        var hints = addrinfo()
+        hints.ai_family = AF_UNSPEC
+        hints.ai_socktype = SOCK_STREAM
+        hints.ai_protocol = 0
         var res: UnsafeMutablePointer<addrinfo>? = nil
         guard getaddrinfo(host, String(port), &hints, &res) == 0, let info = res else { return "解析失败" }
         defer { freeaddrinfo(res) }
