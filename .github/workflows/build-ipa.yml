@@ -6,37 +6,51 @@ on:
   workflow_dispatch:
     inputs:
       signing:
-        description: "是否�?Secrets 里的证书签名（否则产出未签名 ipa�?
+        description: "Use signing certificate from Secrets (otherwise unsigned ipa)"
         type: boolean
         default: false
 
 jobs:
   build:
-    # 免费额度：public 仓库 macOS runner 不限量；private 仓库按分钟计�?    runs-on: macos-latest
+    # public repo: macOS runners are free & unmetered
+    runs-on: macos-latest
     timeout-minutes: 60
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-        with:
-          lfs: true
 
-      - name: 环境信息
+      - name: Toolchain info
         run: |
           xcodebuild -version
           swift --version
-          echo "--- 资源 ---"
+          echo "--- bundled resources ---"
           ls -lh ios/ARTEXX/Resources/ || true
 
-      - name: 校验内置知识�?        run: python3 scripts/verify_assets.py
+      - name: Verify bundled knowledge base
+        run: python3 scripts/verify_assets.py
 
-      - name: 未签名构建（默认�?        if: ${{ !inputs.signing }}
+      - name: Build (unsigned)
+        if: ${{ !inputs.signing }}
         run: |
           set -o pipefail
           cd ios
-          xcodebuild build             -project ARTEXX.xcodeproj             -scheme ARTEXX             -configuration Release             -sdk iphoneos             -derivedDataPath build             CODE_SIGNING_ALLOWED=NO             CODE_SIGNING_REQUIRED=NO             CODE_SIGN_IDENTITY=""             CODE_SIGN_ENTITLEMENTS=""             DEVELOPMENT_TEAM=""             ONLY_ACTIVE_ARCH=NO             | tee build.log | tail -60
+          xcodebuild build \
+            -project ARTEXX.xcodeproj \
+            -scheme ARTEXX \
+            -configuration Release \
+            -sdk iphoneos \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGN_ENTITLEMENTS="" \
+            DEVELOPMENT_TEAM="" \
+            ONLY_ACTIVE_ARCH=NO \
+            | tee build.log | tail -80
 
-      - name: 签名构建（自定义证书�?        if: ${{ inputs.signing }}
+      - name: Build (signed)
+        if: ${{ inputs.signing }}
         env:
           BUILD_CERT_P12: ${{ secrets.BUILD_CERT_P12 }}
           BUILD_CERT_PASSWORD: ${{ secrets.BUILD_CERT_PASSWORD }}
@@ -57,28 +71,38 @@ jobs:
           mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
           cp /tmp/profile.mobileprovision ~/Library/MobileDevice/Provisioning\ Profiles/
           cd ios
-          xcodebuild build             -project ARTEXX.xcodeproj             -scheme ARTEXX             -configuration Release             -sdk iphoneos             -derivedDataPath build             -allowProvisioningUpdates             PRODUCT_BUNDLE_IDENTIFIER="${BUNDLE_ID}"             DEVELOPMENT_TEAM="${TEAM_ID}"             CODE_SIGN_STYLE=Manual             | tee build.log | tail -60
+          xcodebuild build \
+            -project ARTEXX.xcodeproj \
+            -scheme ARTEXX \
+            -configuration Release \
+            -sdk iphoneos \
+            -derivedDataPath build \
+            -allowProvisioningUpdates \
+            PRODUCT_BUNDLE_IDENTIFIER="${BUNDLE_ID}" \
+            DEVELOPMENT_TEAM="${TEAM_ID}" \
+            CODE_SIGN_STYLE=Manual \
+            | tee build.log | tail -80
 
-      - name: 打包 IPA
+      - name: Package IPA
         run: |
           set -euo pipefail
           APP_PATH=ios/build/Build/Products/Release-iphoneos/ARTEXX.app
           test -d "$APP_PATH"
           rm -rf Payload && mkdir Payload
           cp -R "$APP_PATH" Payload/
-          # 未签名构建补一个空�?embedded.mobileprovision 占位不必要，保持原样即可
           zip -qry ARTEXX-unsigned.ipa Payload
           ls -lh ARTEXX-unsigned.ipa
-          unzip -l ARTEXX-unsigned.ipa | head -20
+          unzip -l ARTEXX-unsigned.ipa | head -25
 
-      - name: 上传产物
+      - name: Upload IPA
         uses: actions/upload-artifact@v4
         with:
           name: ARTEXX-ipa
           path: ARTEXX-unsigned.ipa
           retention-days: 14
 
-      - name: 构建日志（失败时�?        if: failure()
+      - name: Upload build log (on failure)
+        if: failure()
         uses: actions/upload-artifact@v4
         with:
           name: build-log
