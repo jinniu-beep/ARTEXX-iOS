@@ -13,7 +13,7 @@ on:
 jobs:
   build:
     # 免费额度：public 仓库 macOS runner 不限量；private 仓库按分钟计费
-    runs-on: macos-14
+    runs-on: macos-13
     timeout-minutes: 60
 
     steps:
