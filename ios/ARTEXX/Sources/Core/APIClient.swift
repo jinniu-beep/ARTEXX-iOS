@@ -32,10 +32,10 @@ struct ServerConfig: Codable, Equatable {
 
     static let recentKey = "artex.recent.addresses"
     static var recentAddresses: [String] {
-        (UserDefaults.standard.stringArray(forKey: recentKey) ?? []).filter { !isLoopback($0) }
+        UserDefaults.standard.stringArray(forKey: recentKey) ?? []
     }
     static func remember(_ addr: String) {
-        guard !isLoopback(addr) else { return }
+        guard !addr.isEmpty else { return }
         var list = UserDefaults.standard.stringArray(forKey: recentKey) ?? []
         list.removeAll { $0 == addr }
         list.insert(addr, at: 0)
@@ -46,7 +46,7 @@ struct ServerConfig: Codable, Equatable {
     static func humanize(_ raw: String) -> String {
         let t = raw.lowercased()
         if t.contains("超时") || t.contains("timed out") || t.contains("timeout") {
-            return "连接超时：电脑上的 ARTEXX 服务没启动，或手机和电脑不在同一网络"
+            return "连接超时：目标服务没响应。若填 127.0.0.1，请确认内置服务已启动"
         }
         if t.contains("拒绝") || t.contains("refused") || t.contains("could not connect") {
             return "连接被拒绝：服务器端口没开放，确认用 -addr :8787 启动"

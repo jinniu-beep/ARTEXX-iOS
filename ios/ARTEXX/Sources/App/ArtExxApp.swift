@@ -7,6 +7,8 @@ struct ArtExxApp: App {
     init() {
         // 数据库在后台解压，不阻塞启动
         CVEDatabase.shared.bootstrap()
+        // 内置服务：监听 127.0.0.1:8787，让「服务器地址」可以填手机自己
+        EmbeddedServer.shared.start()
         UINavigationBar.appearance().largeTitleTextAttributes = [.foregroundColor: UIColor.white]
     }
 

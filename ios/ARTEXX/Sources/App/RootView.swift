@@ -52,7 +52,7 @@ struct RootView: View {
 
 struct LoginView: View {
     @EnvironmentObject var store: AppStore
-    @State private var host = ServerConfig.load().baseURL
+    @State private var host = ServerConfig.load().baseURL.isEmpty ? "http://127.0.0.1:8787" : ServerConfig.load().baseURL
     @State private var password = ""
     @State private var busy = false
     @State private var error: String?
@@ -79,8 +79,15 @@ struct LoginView: View {
                             .background(ArtexTheme.surfaceHi)
                             .clipShape(RoundedRectangle(cornerRadius: 10))
 
-                        Text("填电脑的局域网 IP，不能填 127.0.0.1（那是手机自己）")
-                            .font(.system(size: 10)).foregroundStyle(ArtexTheme.medium)
+                        HStack(spacing: 8) {
+                            Button {
+                                host = "http://127.0.0.1:8787"
+                            } label: {
+                                Pill(text: "用手机本机服务", color: ArtexTheme.ok)
+                            }
+                            Text("127.0.0.1 指向 App 内置服务（无需电脑）")
+                                .font(.system(size: 9)).foregroundStyle(ArtexTheme.dim)
+                        }
 
                         if !ServerConfig.recentAddresses.isEmpty {
                             ScrollView(.horizontal, showsIndicators: false) {
@@ -110,10 +117,7 @@ struct LoginView: View {
                     VStack(alignment: .leading, spacing: 4) {
                         Text(ServerConfig.humanize(raw))
                             .font(.system(size: 12)).foregroundStyle(ArtexTheme.critical)
-                        if ServerConfig.isLoopback(host) {
-                            Text("提示：127.0.0.1 指向手机自己，请改成电脑的局域网 IP")
-                                .font(.system(size: 11)).foregroundStyle(ArtexTheme.medium)
-                        }
+
                     }
                 }
 
