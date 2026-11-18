@@ -21,6 +21,7 @@ struct MoreView: View {
                     NavigationLink("拦截审批", destination: ApprovalsView())
                     NavigationLink("日志", destination: LogsView())
                     NavigationLink("系统配置", destination: SettingsView())
+                    NavigationLink("自检", destination: DiagnosticsView())
                 }
                 Section("账号") {
                     HStack {
