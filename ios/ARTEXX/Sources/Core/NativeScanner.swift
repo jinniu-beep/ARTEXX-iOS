@@ -28,14 +28,12 @@ enum NativeScanner {
                 p = cur.pointee.ai_next
             }
         }
-        // CNAME
+        // CNAME（gethostbyname 在 iOS 可用，但不是线程安全的，仅作参考）
         var cname: String?
-        var hostEntry = [CChar](repeating: 0, count: 1024)
-        if gethostbyname_r(host, nil, nil, 0, nil, nil) == nil { }
-        if let h = gethostbyname(host), let n = h.pointee.h_name, String(cString: n) != host {
-            cname = String(cString: n)
+        if let h = gethostbyname(host), let n = h.pointee.h_name {
+            let name = String(cString: n)
+            if name != host { cname = name }
         }
-        _ = hostEntry
         return DNSResult(host: host, addresses: addrs, cname: cname)
     }
 
