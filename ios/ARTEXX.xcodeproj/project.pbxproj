@@ -61,10 +61,13 @@
 
 /* Begin PBXGroup section */
 		000000000000000001000037 = {isa = PBXGroup; children = (
-			000000000000000001000031 /* Resources */,
-			000000000000000001000001 /* Assets.xcassets */,
+			000000000000000001000038 /* ARTEXX */,
 			00000000000000000100002F /* ARTEXX.app */,
 		); sourceTree = "<group>"; };
+		000000000000000001000038 /* ARTEXX */ = {isa = PBXGroup; children = (
+			000000000000000001000031 /* Resources */,
+			000000000000000001000001 /* Assets.xcassets */,
+		); path = "ARTEXX"; sourceTree = "<group>"; };
 		000000000000000001000031 /* Resources */ = {isa = PBXGroup; children = (
 			000000000000000001000003 /* cve.sqlite.gz */,
 			000000000000000001000005 /* exploits.json */,
@@ -102,13 +105,13 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		000000000000000001000038 /* ARTEXX */ = {
+		000000000000000001000039 /* ARTEXX */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 00000000000000000100003E /* target config list */;
+			buildConfigurationList = 00000000000000000100003F /* target config list */;
 			buildPhases = (
-				000000000000000001000039 /* Sources */,
-				00000000000000000100003B /* Frameworks */,
-				00000000000000000100003A /* Resources */,
+				00000000000000000100003A /* Sources */,
+				00000000000000000100003C /* Frameworks */,
+				00000000000000000100003B /* Resources */,
 			);
 			buildRules = (
 			);
@@ -122,17 +125,17 @@
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
-		00000000000000000100003C /* Project object */ = {
+		00000000000000000100003D /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
 				BuildIndependentTargetsInParallel = 1;
 				LastSwiftUpdateCheck = 1500;
 				LastUpgradeCheck = 1500;
 				TargetAttributes = {
-					000000000000000001000038 = { CreatedOnToolsVersion = 15.0; };
+					000000000000000001000039 = { CreatedOnToolsVersion = 15.0; };
 				};
 			};
-			buildConfigurationList = 00000000000000000100003D /* project config list */;
+			buildConfigurationList = 00000000000000000100003E /* project config list */;
 			compatibilityVersion = "Xcode 14.0";
 			developmentRegion = zh_CN;
 			hasScannedForEncodings = 0;
@@ -146,13 +149,13 @@
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				000000000000000001000038 /* ARTEXX */,
+				000000000000000001000039 /* ARTEXX */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXSourcesBuildPhase section */
-		000000000000000001000039 /* Sources */ = {
+		00000000000000000100003A /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -181,7 +184,7 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXResourcesBuildPhase section */
-		00000000000000000100003A /* Resources */ = {
+		00000000000000000100003B /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -195,7 +198,7 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXFrameworksBuildPhase section */
-		00000000000000000100003B /* Frameworks */ = {
+		00000000000000000100003C /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -205,7 +208,7 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin XCBuildConfiguration section */
-		00000000000000000100003F /* Debug */ = {
+		000000000000000001000040 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
@@ -221,7 +224,7 @@
 			};
 			name = Debug;
 		};
-		000000000000000001000040 /* Release */ = {
+		000000000000000001000041 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
@@ -239,7 +242,7 @@
 			};
 			name = Release;
 		};
-		000000000000000001000041 /* Debug */ = {
+		000000000000000001000042 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
@@ -264,7 +267,7 @@
 			};
 			name = Debug;
 		};
-		000000000000000001000042 /* Release */ = {
+		000000000000000001000043 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
@@ -291,25 +294,25 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		00000000000000000100003D /* project */ = {
+		00000000000000000100003E /* project */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				00000000000000000100003F /* Debug */,
-				000000000000000001000040 /* Release */,
+				000000000000000001000040 /* Debug */,
+				000000000000000001000041 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		00000000000000000100003E /* target */ = {
+		00000000000000000100003F /* target */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				000000000000000001000041 /* Debug */,
-				000000000000000001000042 /* Release */,
+				000000000000000001000042 /* Debug */,
+				000000000000000001000043 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
 	};
-	rootObject = 00000000000000000100003C /* Project object */;
+	rootObject = 00000000000000000100003D /* Project object */;
 }

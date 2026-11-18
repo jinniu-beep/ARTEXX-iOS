@@ -82,15 +82,19 @@ for (const dir of Object.keys(groupsByDir)) groupUid[dir] = uid();
 const mainGroup = uid();
 
 p("\n/* Begin PBXGroup section */");
+const appGroup = uid();
 p("\t\t" + mainGroup + " = {isa = PBXGroup; children = (");
+p("\t\t\t" + appGroup + " /* " + APP + " */,");
+p("\t\t\t" + appRef + " /* " + APP + ".app */,");
+p('\t\t); sourceTree = "<group>"; };');
+p("\t\t" + appGroup + " /* " + APP + " */ = {isa = PBXGroup; children = (");
 const dirs = Object.keys(groupsByDir).sort();
 for (const dir of dirs) {
   if (dir === "" || dir.indexOf("/") >= 0) continue;
   p("\t\t\t" + groupUid[dir] + " /* " + dir + " */,");
 }
 for (const f of (groupsByDir[""] || [])) p("\t\t\t" + fileRefs[f.rel] + " /* " + path.basename(f.rel) + " */,");
-p("\t\t\t" + appRef + " /* " + APP + ".app */,");
-p('\t\t); sourceTree = "<group>"; };');
+p('\t\t); path = "' + APP + '"; sourceTree = "<group>"; };');
 for (const dir of dirs) {
   if (dir === "") continue;
   const name = path.basename(dir);
