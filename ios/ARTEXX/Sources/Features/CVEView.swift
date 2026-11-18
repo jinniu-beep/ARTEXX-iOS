@@ -128,6 +128,8 @@ struct CVEDetailView: View {
     @State private var body_: (desc: String, refs: Int)?
     @State private var relatedSkills: [Skill] = []
     @State private var guide = CVEPlaybook.empty
+    @State private var dbGuide: CVEGuidance?
+    @State private var links: [String] = []
 
     var body: some View {
         NavigationStack {
@@ -153,13 +155,16 @@ struct CVEDetailView: View {
                             kv("厂商/产品", row.vendor)
                             kv("CWE", row.cwe.isEmpty ? "-" : row.cwe)
                             kv("披露日期", row.published)
-                            kv("影响面", guide.target)
+                            kv("类型", dbGuide?.type ?? guide.target)
+                            if !row.ranges.isEmpty { kv("影响版本", row.ranges) }
+                            if !row.vector.isEmpty { kv("CVSS 向量", row.vector) }
+                            if row.hasExploit { kv("公开 EXP", "ExploitDB #" + row.exploitId) }
                         }
                     }
 
                     Card(title: "② 怎么使用（利用前提）") {
                         VStack(alignment: .leading, spacing: 5) {
-                            ForEach(guide.prereqs, id: \.self) { t in
+                            ForEach(Array((dbGuide?.prereq ?? guide.prereqs).enumerated()), id: \.offset) { _, t in
                                 HStack(alignment: .top, spacing: 6) {
                                     Text("•").foregroundStyle(ArtexTheme.accent)
                                     Text(t).font(.system(size: 12)).foregroundStyle(ArtexTheme.text)
@@ -170,7 +175,7 @@ struct CVEDetailView: View {
 
                     Card(title: "③ 怎么实现（验证载荷）") {
                         VStack(alignment: .leading, spacing: 8) {
-                            ForEach(guide.payloads, id: \.self) { p in
+                            ForEach(Array((dbGuide?.payload ?? guide.payloads).enumerated()), id: \.offset) { _, p in
                                 HStack(alignment: .top) {
                                     Text(p).font(.system(size: 10, design: .monospaced)).foregroundStyle(ArtexTheme.accent)
                                     Spacer(minLength: 6)
@@ -186,8 +191,8 @@ struct CVEDetailView: View {
                     Card(title: "④ 真实案例") {
                         VStack(alignment: .leading, spacing: 6) {
                             Text(guide.caseStudy).font(.system(size: 12)).foregroundStyle(ArtexTheme.text)
-                            if !guide.references.isEmpty {
-                                ForEach(guide.references, id: \.self) { r in
+                            if !(links.isEmpty ? guide.references : links).isEmpty {
+                                ForEach(Array((links.isEmpty ? guide.references : links).prefix(6).enumerated()), id: \.offset) { _, r in
                                     Link(r, destination: URL(string: r) ?? URL(string: "https://nvd.nist.gov")!)
                                         .font(.system(size: 10, design: .monospaced))
                                         .foregroundStyle(ArtexTheme.low)
@@ -219,6 +224,8 @@ struct CVEDetailView: View {
             }
             .task {
                 body_ = CVEDatabase.shared.detail(row.id)
+                dbGuide = CVEDatabase.shared.guidance(row.id)
+                links = CVEDatabase.shared.references(row.id)
                 relatedSkills = row.skills.compactMap { SkillLibrary.shared.byID($0) }
                 guide = CVEPlaybook.build(row: row, desc: body_?.desc ?? row.title)
             }

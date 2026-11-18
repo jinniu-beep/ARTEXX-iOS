@@ -318,6 +318,17 @@ struct CVERow: Identifiable, Hashable {
     var published: String
     var refs: Int
     var skills: [String]
+    var vector: String = ""
+    var ranges: String = ""
+    var hasExploit: Bool = false
+    var exploitId: String = ""
+}
+
+/// 数据库里预生成的四段式指引
+struct CVEGuidance: Decodable {
+    var type: String
+    var prereq: [String]
+    var payload: [String]
 }
 
 // MARK: - 设置/系统
