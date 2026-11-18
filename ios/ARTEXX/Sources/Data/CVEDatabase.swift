@@ -58,9 +58,31 @@ final class CVEDatabase: ObservableObject {
                 }
                 return open(target)
             }
+            let tmp = target.deletingLastPathComponent().appendingPathComponent("cve.sqlite.tmp")
             do {
-                try Gzip.decompress(gz, to: target)
+                try Gzip.decompress(gz, to: tmp)
+                // 解压产物必须能打开且有数据，才原子替换
+                var probe: OpaquePointer?
+                guard sqlite3_open_v2(tmp.path, &probe, SQLITE_OPEN_READONLY, nil) == SQLITE_OK else {
+                    try? FileManager.default.removeItem(at: tmp)
+                    return .failure(Gzip.GzipError.shortOutput)
+                }
+                var stmt: OpaquePointer?
+                var rows = 0
+                if sqlite3_prepare_v2(probe, "SELECT count(*) FROM cve", -1, &stmt, nil) == SQLITE_OK,
+                   sqlite3_step(stmt) == SQLITE_ROW {
+                    rows = Int(sqlite3_column_int64(stmt, 0))
+                }
+                sqlite3_finalize(stmt)
+                sqlite3_close(probe)
+                guard rows > 0 else {
+                    try? FileManager.default.removeItem(at: tmp)
+                    return .failure(Gzip.GzipError.shortOutput)
+                }
+                try? FileManager.default.removeItem(at: target)
+                try FileManager.default.moveItem(at: tmp, to: target)
             } catch {
+                try? FileManager.default.removeItem(at: tmp)
                 return .failure(error)
             }
         }
