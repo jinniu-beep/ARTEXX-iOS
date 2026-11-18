@@ -3,15 +3,13 @@ import SwiftUI
 struct RootView: View {
     @EnvironmentObject var store: AppStore
     @State private var tab: Int = 0
+    @ObservedObject private var cve = CVEDatabase.shared
 
     var body: some View {
         ZStack {
             ArtexTheme.bg.ignoresSafeArea()
             if store.initializing {
-                VStack(spacing: 14) {
-                    ProgressView().tint(ArtexTheme.accent)
-                    Text("ARTEXX 启动中").foregroundStyle(ArtexTheme.dim)
-                }
+                splash
             } else if !store.loggedIn {
                 LoginView()
             } else {
@@ -24,6 +22,37 @@ struct RootView: View {
                     MoreView().tabItem { Label("更多", systemImage: "ellipsis.circle") }.tag(5)
                 }
             }
+        }
+    }
+
+    /// 启动页：显示进度与「跳过」按钮，永不卡死
+    private var splash: some View {
+        VStack(spacing: 18) {
+            Text("ARTEXX")
+                .font(.system(size: 34, weight: .heavy, design: .rounded))
+                .foregroundStyle(ArtexTheme.accent)
+            ProgressView().tint(ArtexTheme.accent)
+            Text("正在连接服务器…")
+                .font(.system(size: 12)).foregroundStyle(ArtexTheme.dim)
+
+            switch cve.phase {
+            case .preparing:
+                Text("内置 CVE 知识库解压中（首次约 3 秒）")
+                    .font(.system(size: 11)).foregroundStyle(ArtexTheme.medium)
+            case .ready:
+                Text("知识库就绪 · \(cve.totalRows) 条 CVE")
+                    .font(.system(size: 11)).foregroundStyle(ArtexTheme.ok)
+            case .failed(let msg):
+                Text("知识库异常：" + msg)
+                    .font(.system(size: 11)).foregroundStyle(ArtexTheme.critical)
+            case .idle:
+                EmptyView()
+            }
+
+            Button("直接进入") { store.skipSplash() }
+                .font(.system(size: 13))
+                .foregroundStyle(ArtexTheme.accent)
+                .padding(.top, 8)
         }
     }
 }
@@ -66,7 +95,7 @@ struct LoginView: View {
                         .clipShape(RoundedRectangle(cornerRadius: 10))
                 }
 
-                if let error {
+                if let error = error ?? store.lastError {
                     Text(error).font(.system(size: 12)).foregroundStyle(ArtexTheme.critical)
                 }
 

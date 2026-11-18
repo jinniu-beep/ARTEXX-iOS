@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct CVEView: View {
+    @ObservedObject private var cveDB = CVEDatabase.shared
     @State private var query = ""
     @State private var severity = ""
     @State private var vendor = ""
@@ -48,6 +49,12 @@ struct CVEView: View {
                 if searching {
                     ProgressView().tint(ArtexTheme.accent).padding(.top, 40)
                     Spacer()
+                } else if cveDB.phase == .preparing {
+                    VStack(spacing: 10) {
+                        ProgressView().tint(ArtexTheme.accent)
+                        Text("CVE 知识库解压中…").font(.system(size: 12)).foregroundStyle(ArtexTheme.dim)
+                    }.padding(.top, 40)
+                    Spacer()
                 } else if results.isEmpty {
                     EmptyHint(text: didInit ? "没有匹配的 CVE，换个关键词试试" : "加载中…")
                     Spacer()
@@ -68,6 +75,11 @@ struct CVEView: View {
             .navigationTitle("CVE 知识库")
             .sheet(item: $detail) { c in CVEDetailView(row: c) }
             .task {
+                stats = CVEDatabase.shared.stats()
+                vendors = CVEDatabase.shared.vendors(limit: 80)
+                runSearch()
+            }
+            .onChange(of: cveDB.phase) { _ in
                 stats = CVEDatabase.shared.stats()
                 vendors = CVEDatabase.shared.vendors(limit: 80)
                 runSearch()

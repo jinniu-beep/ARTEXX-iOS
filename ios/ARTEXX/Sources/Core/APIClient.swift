@@ -48,12 +48,42 @@ final class APIClient {
     static let serial = DispatchQueue(label: "artex.api.config")
     private let session: URLSession
 
+    /// 常规请求会话（可等待网络恢复，但单请求有硬超时）
+    private let probeSession: URLSession
+
     init() {
         let cfg = URLSessionConfiguration.default
-        cfg.timeoutIntervalForRequest = 45
-        cfg.timeoutIntervalForResource = 300
-        cfg.waitsForConnectivity = true
+        cfg.timeoutIntervalForRequest = 20
+        cfg.timeoutIntervalForResource = 120
+        cfg.waitsForConnectivity = false      // 关键：不可达要立刻失败，不能挂住
+        cfg.requestCachePolicy = .reloadIgnoringLocalCacheData
         session = URLSession(configuration: cfg)
+
+        // 探测专用：3 秒连不上就当失败，用于启动判断
+        let p = URLSessionConfiguration.ephemeral
+        p.timeoutIntervalForRequest = 3
+        p.timeoutIntervalForResource = 5
+        p.waitsForConnectivity = false
+        probeSession = URLSession(configuration: p)
+    }
+
+    /// 轻量探活：3 秒内必须给出结论（成功或失败），绝不挂起
+    func probe(path: String = "auth/status") async -> Bool {
+        guard let url = URL(string: config.effectiveBase + "/api/" + path) else { return false }
+        var req = URLRequest(url: url)
+        req.httpMethod = "GET"
+        req.timeoutInterval = 3
+        if !config.token.isEmpty {
+            req.setValue("Bearer \(config.token)", forHTTPHeaderField: "Authorization")
+        }
+        do {
+            let (_, resp) = try await probeSession.data(for: req)
+            guard let http = resp as? HTTPURLResponse else { return false }
+            // 401 说明服务活着，只是 token 过期
+            return (200..<500).contains(http.statusCode)
+        } catch {
+            return false
+        }
     }
 
     func update(_ cfg: ServerConfig) { config = cfg; cfg.save() }

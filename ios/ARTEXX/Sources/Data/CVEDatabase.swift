@@ -1,14 +1,15 @@
+import Combine
 import Foundation
 import SQLite3
 
 /// 内置 CVE 知识库（只读）：首次启动把打包的 gzip 解到 Application Support，
 /// 之后用 SQLite + FTS5 做毫秒级检索。
-final class CVEDatabase {
+final class CVEDatabase: ObservableObject {
     static let shared = CVEDatabase()
     private var handle: OpaquePointer?
     private let queue = DispatchQueue(label: "artex.cve.db")
     private(set) var ready = false
-    private(set) var totalRows = 0
+    @Published private(set) var totalRows = 0
 
     private var dbPath: URL {
         let dir = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
@@ -17,34 +18,67 @@ final class CVEDatabase {
         return dir.appendingPathComponent("cve.sqlite")
     }
 
-    func bootstrap() {
-        queue.sync { self.bootstrapSync() }
-    }
+    @Published private(set) var phase: Phase = .idle
+    enum Phase: Equatable { case idle, preparing, ready, failed(String) }
 
-    private func bootstrapSync() {
-        guard !ready else { return }
-        let target = dbPath
-        if !FileManager.default.fileExists(atPath: target.path) {
-            // 1) 优先解压打包的 gz；2) 退回未压缩版本
-            if let gz = Bundle.main.url(forResource: "cve", withExtension: "sqlite.gz"),
-               let data = try? Data(contentsOf: gz),
-               let raw = data.gunzipped() {
-                try? raw.write(to: target)
-            } else if let plain = Bundle.main.url(forResource: "cve", withExtension: "sqlite"),
-                      let data = try? Data(contentsOf: plain) {
-                try? data.write(to: target)
-            } else {
-                NSLog("CVE 数据库资源缺失")
-                return
+    /// 后台准备数据库：解压 → 打开 → 建索引。任何阶段失败都不会卡住 UI。
+    func bootstrap() {
+        guard phase == .idle || isFailed else { return }
+        phase = .preparing
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            guard let self else { return }
+            let result = self.prepare()
+            DispatchQueue.main.async {
+                switch result {
+                case .success:
+                    self.phase = .ready
+                case .failure(let err):
+                    self.phase = .failed(err.localizedDescription)
+                    NSLog("[ARTEXX] CVE 库准备失败: \(err.localizedDescription)")
+                }
             }
         }
-        if sqlite3_open_v2(target.path, &handle, SQLITE_OPEN_READONLY, nil) != SQLITE_OK {
-            NSLog("CVE 数据库打开失败")
-            return
+    }
+
+    private var isFailed: Bool {
+        if case .failed = phase { return true }
+        return false
+    }
+
+    private func prepare() -> Result<Void, Error> {
+        let target = dbPath
+
+        // 1) 需要解压时先解压（流式，不占内存）
+        if !FileManager.default.fileExists(atPath: target.path) {
+            guard let gz = Bundle.main.url(forResource: "cve", withExtension: "sqlite.gz") else {
+                if let plain = Bundle.main.url(forResource: "cve", withExtension: "sqlite") {
+                    try? FileManager.default.copyItem(at: plain, to: target)
+                } else {
+                    return .failure(Gzip.GzipError.openInput)
+                }
+                return open(target)
+            }
+            do {
+                try Gzip.decompress(gz, to: target)
+            } catch {
+                return .failure(error)
+            }
         }
+        return open(target)
+    }
+
+    private func open(_ target: URL) -> Result<Void, Error> {
+        if sqlite3_open_v2(target.path, &handle, SQLITE_OPEN_READONLY, nil) != SQLITE_OK {
+            return .failure(Gzip.GzipError.openOutput)
+        }
+        // 只读 + 不建临时表，避免首次查询卡顿
+        sqlite3_exec(handle, "PRAGMA query_only=1; PRAGMA cache_size=-8000; PRAGMA mmap_size=268435456;", nil, nil, nil)
         totalRows = scalarInt("SELECT count(*) FROM cve") ?? 0
         ready = true
+        NSLog("[ARTEXX] CVE 库就绪，共 \(totalRows) 条")
+        return .success(())
     }
+
 
     private func scalarInt(_ sql: String) -> Int? {
         var stmt: OpaquePointer?

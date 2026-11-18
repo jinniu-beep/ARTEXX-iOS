@@ -5,8 +5,8 @@ struct ArtExxApp: App {
     @StateObject private var store = AppStore()
 
     init() {
+        // 数据库在后台解压，不阻塞启动
         CVEDatabase.shared.bootstrap()
-        // 让控制台输出风格统一
         UINavigationBar.appearance().largeTitleTextAttributes = [.foregroundColor: UIColor.white]
     }
 
@@ -32,18 +32,42 @@ final class AppStore: ObservableObject {
 
     func bootstrap() {
         APIClient.shared.update(config)
+
+        // 看门狗：无论探测结果如何，最多 4 秒后必须放行到登录页
+        let watchdog = Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 4_000_000_000)
+            if self.initializing {
+                self.initializing = false
+                self.lastError = "服务器未响应，已进入登录页，可修改地址后重试"
+            }
+        }
+
         Task {
-            do {
-                let st = try await AuthAPI.status()
-                if st.needSetup == true || st.initialized == false {
-                    loggedIn = false
-                } else if !config.token.isEmpty {
-                    loggedIn = true
+            // 先放行：有 token 就直接进主界面（离线也能看本地知识库）
+            if !config.token.isEmpty {
+                loggedIn = true
+                initializing = false
+                watchdog.cancel()
+            }
+
+            // 再异步校验服务端状态（最多 3 秒）
+            let reachable = await APIClient.shared.probe()
+            if !reachable {
+                if config.token.isEmpty {
+                    lastError = "无法连接服务器（3 秒超时），请检查地址"
                 }
-            } catch {
-                lastError = error.localizedDescription
+            } else if config.token.isEmpty {
+                do {
+                    let st = try await AuthAPI.status()
+                    if st.needSetup == true || st.initialized == false {
+                        lastError = "服务端尚未初始化，请设置管理员密码"
+                    }
+                } catch {
+                    lastError = error.localizedDescription
+                }
             }
             initializing = false
+            watchdog.cancel()
         }
     }
 
@@ -59,4 +83,10 @@ final class AppStore: ObservableObject {
     }
 
     func bump() { refreshTick += 1 }
+
+    /// 用户主动跳过启动等待
+    func skipSplash() {
+        initializing = false
+        if !config.token.isEmpty { loggedIn = true }
+    }
 }
