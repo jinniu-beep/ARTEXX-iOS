@@ -10,7 +10,7 @@ struct SkillLibraryView: View {
     private var list: [Skill] { lib.filtered(category: category, query: query) }
 
     var body: some View {
-        NavigationStack {
+        Group {
             VStack(spacing: 0) {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 8) {
@@ -43,7 +43,6 @@ struct SkillLibraryView: View {
                 .searchable(text: $query, prompt: "搜技能 / 工具 / 标签")
             }
             .background(ArtexTheme.bg)
-            .navigationTitle("技能库")
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button {
@@ -91,7 +90,7 @@ struct SkillDetailView: View {
     @State private var relatedCVE: [CVERow] = []
 
     var body: some View {
-        NavigationStack {
+        Group {
             ScrollView {
                 VStack(alignment: .leading, spacing: 14) {
                     HStack(spacing: 6) {
@@ -143,8 +142,6 @@ struct SkillDetailView: View {
                 }.padding(16)
             }
             .background(ArtexTheme.bg)
-            .navigationTitle(skill.n)
-            .navigationBarTitleDisplayMode(.inline)
             .task { relatedCVE = CVEDatabase.shared.bySkill(skill.id, limit: 20) }
         }
     }
@@ -156,7 +153,7 @@ struct PlaybookView: View {
     private var playbook: Playbook { SkillLibrary.shared.buildPlaybook() }
 
     var body: some View {
-        NavigationStack {
+        Group {
             VStack(spacing: 0) {
                 Picker("", selection: $mode) {
                     Text("编排").tag(0)
@@ -201,8 +198,6 @@ struct PlaybookView: View {
                 }
             }
             .background(ArtexTheme.bg)
-            .navigationTitle("作战编排 · \(playbook.skills.count) 项")
-            .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("关闭") { dismiss() } }
                 ToolbarItem(placement: .confirmationAction) {

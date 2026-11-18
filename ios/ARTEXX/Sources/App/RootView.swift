@@ -13,15 +13,7 @@ struct RootView: View {
             } else if store.needsLogin {
                 LoginView()
             } else {
-                TabView(selection: $tab) {
-                    LocalScanView().tabItem { Label("本地扫描", systemImage: "dot.radiowaves.left.and.right") }.tag(6)
-                    DashboardView().tabItem { Label("仪表盘", systemImage: "gauge.with.dots.needle.67percent") }.tag(0)
-                    TaskListView().tabItem { Label("任务", systemImage: "target") }.tag(1)
-                    SkillLibraryView().tabItem { Label("技能库", systemImage: "square.stack.3d.up") }.tag(2)
-                    CVEView().tabItem { Label("CVE", systemImage: "shield.lefthalf.filled") }.tag(3)
-                    ConsoleView().tabItem { Label("控制台", systemImage: "terminal") }.tag(4)
-                    MoreView().tabItem { Label("更多", systemImage: "ellipsis.circle") }.tag(5)
-                }
+                AppShell()
             }
         }
     }

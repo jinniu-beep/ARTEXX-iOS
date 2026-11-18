@@ -14,7 +14,7 @@ struct DashboardView: View {
     }
 
     var body: some View {
-        NavigationStack {
+        Group {
             if store.offlineMode { offlineDashboard } else {
             ScrollView {
                 VStack(spacing: 14) {
@@ -75,7 +75,6 @@ struct DashboardView: View {
                 .padding(14)
             }
             .background(ArtexTheme.bg)
-            .navigationTitle("仪表盘")
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button {
@@ -126,7 +125,6 @@ struct DashboardView: View {
             }.padding(14)
         }
         .background(ArtexTheme.bg)
-        .navigationTitle("仪表盘")
     }
 
     private func offlineRow(_ icon: String, _ title: String, _ sub: String) -> some View {

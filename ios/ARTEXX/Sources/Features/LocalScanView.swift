@@ -88,7 +88,6 @@ struct LocalScanView: View {
             .padding(14)
         }
         .background(ArtexTheme.bg)
-        .navigationTitle("本地扫描")
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
                 NavigationLink { LLMConfigView() } label: { Image(systemName: "brain") }
@@ -327,7 +326,6 @@ struct LLMConfigView: View {
         }
         .scrollContentBackground(.hidden)
         .background(ArtexTheme.bg)
-        .navigationTitle("模型")
         .onDisappear { LLMClient.shared.update(cfg) }
     }
 

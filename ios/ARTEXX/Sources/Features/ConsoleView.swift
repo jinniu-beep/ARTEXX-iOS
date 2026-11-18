@@ -10,7 +10,7 @@ struct ConsoleView: View {
     @FocusState private var focused: Bool
 
     var body: some View {
-        NavigationStack {
+        Group {
             VStack(spacing: 0) {
                 HStack(spacing: 10) {
                     Picker("", selection: $mode) {
@@ -74,8 +74,6 @@ struct ConsoleView: View {
                 .overlay(Rectangle().frame(height: 0.5).foregroundStyle(ArtexTheme.border), alignment: .top)
             }
             .background(ArtexTheme.bg)
-            .navigationTitle("控制台")
-            .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
                     Button {
@@ -155,7 +153,7 @@ struct ConsoleSkillPicker: View {
     private let lib = SkillLibrary.shared
 
     var body: some View {
-        NavigationStack {
+        Group {
             List {
                 ForEach(lib.filtered(category: nil, query: q).prefix(120)) { s in
                     Button {
@@ -173,8 +171,6 @@ struct ConsoleSkillPicker: View {
             .searchable(text: $q, prompt: "搜技能")
             .scrollContentBackground(.hidden)
             .background(ArtexTheme.bg)
-            .navigationTitle("插入技能命令")
-            .navigationBarTitleDisplayMode(.inline)
         }
     }
 }

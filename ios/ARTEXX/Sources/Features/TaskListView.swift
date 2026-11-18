@@ -12,7 +12,7 @@ struct TaskListView: View {
     private var filters: [String] { ["全部", "running", "paused", "done", "failed"] }
 
     var body: some View {
-        NavigationStack {
+        Group {
             if store.offlineMode {
                 localList
             } else {
@@ -57,7 +57,6 @@ struct TaskListView: View {
                 }
             }
             .background(ArtexTheme.bg)
-            .navigationTitle("任务")
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button {
@@ -223,7 +222,7 @@ struct NewTaskView: View {
     @State private var picked: [Skill] = []
 
     var body: some View {
-        NavigationStack {
+        Group {
             Form {
                 Section("基本信息") {
                     TextField("任务标题", text: $title)
@@ -252,7 +251,6 @@ struct NewTaskView: View {
             }
             .scrollContentBackground(.hidden)
             .background(ArtexTheme.bg)
-            .navigationTitle("新建任务")
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("取消") { dismiss() } }
                 ToolbarItem(placement: .confirmationAction) {
@@ -310,7 +308,6 @@ struct SkillPickerView: View {
         .searchable(text: $query, prompt: "搜技能名 / 工具 / 标签")
         .scrollContentBackground(.hidden)
         .background(ArtexTheme.bg)
-        .navigationTitle("选技能")
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
                 Menu {

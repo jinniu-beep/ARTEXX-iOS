@@ -16,7 +16,7 @@ struct CVEView: View {
     private let severities = ["", "critical", "high", "medium"]
 
     var body: some View {
-        NavigationStack {
+        Group {
             VStack(spacing: 0) {
                 header
 
@@ -72,7 +72,6 @@ struct CVEView: View {
             .searchable(text: $query, placement: .navigationBarDrawer(displayMode: .always), prompt: "CVE 编号 / 产品 / 关键词")
             .onSubmit(of: .search) { runSearch() }
             .onChange(of: query) { _ in runSearch() }
-            .navigationTitle("CVE 知识库")
             .sheet(item: $detail) { c in CVEDetailView(row: c) }
             .task {
                 stats = CVEDatabase.shared.stats()
@@ -144,7 +143,7 @@ struct CVEDetailView: View {
     @State private var links: [String] = []
 
     var body: some View {
-        NavigationStack {
+        Group {
             ScrollView {
                 VStack(alignment: .leading, spacing: 14) {
                     HStack(spacing: 8) {
@@ -229,8 +228,6 @@ struct CVEDetailView: View {
                 }.padding(16)
             }
             .background(ArtexTheme.bg)
-            .navigationTitle(row.id)
-            .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("关闭") { dismiss() } }
             }
