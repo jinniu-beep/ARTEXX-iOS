@@ -76,9 +76,8 @@ final class CVEDatabase: ObservableObject {
         totalRows = scalarInt("SELECT count(*) FROM cve") ?? 0
         ready = true
         NSLog("[ARTEXX] CVE 库就绪，共 \(totalRows) 条")
-        return .success(())
+        return .success(Void())
     }
-
 
     private func scalarInt(_ sql: String) -> Int? {
         var stmt: OpaquePointer?

@@ -71,22 +71,41 @@ enum Gzip {
                 let produced = outBuf.withUnsafeMutableBufferPointer { dst -> Int in
                     stream.dst_ptr = dst.baseAddress!
                     stream.dst_size = outSize
-                    return compression_stream_process(&stream, eof ? Int32(COMPRESSION_STREAM_FINALIZE.rawValue) : 0)
-                        == COMPRESSION_STATUS_ERROR ? -1 : outSize - stream.dst_size
+                    let flags = eof ? Int32(COMPRESSION_STREAM_FINALIZE.rawValue) : 0
+                    let rc = compression_stream_process(&stream, flags)
+                    if rc == COMPRESSION_STATUS_ERROR { return -1 }
+                    status = rc
+                    return outSize - stream.dst_size
                 }
                 if produced < 0 { throw GzipError.stream }
                 if produced > 0 {
-                    try outBuf.withUnsafeBytes { raw in
-                        try output.write(contentsOf: raw[0..<produced])
-                    }
+                    let chunk = Data(bytes: outBuf, count: produced)
+                    try output.write(contentsOf: chunk)
                     total += Int64(produced)
                 }
-                status = eof && stream.src_size == 0 ? COMPRESSION_STATUS_END : COMPRESSION_STATUS_OK
-                if produced == 0 { break }
-            } while stream.src_size > 0
+                // 输入耗尽且没有新输出 → 本轮结束
+                if stream.src_size == 0 && produced == 0 { break }
+            } while stream.src_size > 0 || (eof && status != COMPRESSION_STATUS_END)
 
-            if eof { break }
-        } while status != COMPRESSION_STATUS_END
+            if eof && status == COMPRESSION_STATUS_END { break }
+            if eof && status != COMPRESSION_STATUS_END {
+                // FINALIZE 后仍非 END：再推一轮空输入
+                var produced = outBuf.withUnsafeMutableBufferPointer { dst -> Int in
+                    stream.dst_ptr = dst.baseAddress!
+                    stream.dst_size = outSize
+                    let rc = compression_stream_process(&stream, Int32(COMPRESSION_STREAM_FINALIZE.rawValue))
+                    if rc == COMPRESSION_STATUS_ERROR { return -1 }
+                    status = rc
+                    return outSize - stream.dst_size
+                }
+                if produced < 0 { throw GzipError.stream }
+                if produced > 0 {
+                    try output.write(contentsOf: Data(bytes: outBuf, count: produced))
+                    total += Int64(produced)
+                }
+                if status == COMPRESSION_STATUS_END { break }
+            }
+        } while status != COMPRESSION_STATUS_END && total >= 0
 
         try output.synchronize()
         return total
