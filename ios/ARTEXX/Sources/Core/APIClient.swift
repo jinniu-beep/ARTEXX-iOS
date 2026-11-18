@@ -1,0 +1,146 @@
+import Foundation
+
+// MARK: - 服务器配置（对齐 ARTEXX 后端 http://host:8787 + /api + Bearer JWT）
+struct ServerConfig: Codable, Equatable {
+    var baseURL: String = "http://127.0.0.1:8787"
+    var token: String = ""
+    var proxyURL: String = "http://127.0.0.1:8788"
+    var gatewayMode: Bool = false      // true = 本机跑 gateway（iSH），false = 直连远端
+    var gatewayPort: Int = 8787
+
+    static let storageKey = "artex.server.config"
+    static func load() -> ServerConfig {
+        guard let data = UserDefaults.standard.data(forKey: storageKey),
+              let cfg = try? JSONDecoder().decode(ServerConfig.self, from: data) else { return ServerConfig() }
+        return cfg
+    }
+    func save() {
+        if let data = try? JSONEncoder().encode(self) {
+            UserDefaults.standard.set(data, forKey: ServerConfig.storageKey)
+        }
+    }
+    var effectiveBase: String {
+        if gatewayMode { return "http://127.0.0.1:\(gatewayPort)" }
+        return baseURL.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+    }
+}
+
+enum APIError: LocalizedError {
+    case badURL(String)
+    case http(Int, String)
+    case decode(String)
+    case transport(String)
+
+    var errorDescription: String? {
+        switch self {
+        case .badURL(let s): return "URL 无效: \(s)"
+        case .http(let c, let m): return "HTTP \(c): \(m)"
+        case .decode(let m): return "解析失败: \(m)"
+        case .transport(let m): return "网络错误: \(m)"
+        }
+    }
+}
+
+// MARK: - 客户端
+final class APIClient {
+    static let shared = APIClient()
+    var config: ServerConfig = ServerConfig.load()
+    static let serial = DispatchQueue(label: "artex.api.config")
+    private let session: URLSession
+
+    init() {
+        let cfg = URLSessionConfiguration.default
+        cfg.timeoutIntervalForRequest = 45
+        cfg.timeoutIntervalForResource = 300
+        cfg.waitsForConnectivity = true
+        session = URLSession(configuration: cfg)
+    }
+
+    func update(_ cfg: ServerConfig) { config = cfg; cfg.save() }
+
+    private func request(path: String, method: String = "GET", body: Data? = nil, query: [String: String]? = nil) throws -> URLRequest {
+        var comps = URLComponents(string: config.effectiveBase)
+        guard comps != nil else { throw APIError.badURL(config.effectiveBase) }
+        comps!.path = "/api" + (path.hasPrefix("/") ? path : "/" + path)
+        if let query, !query.isEmpty {
+            comps!.queryItems = query.map { URLQueryItem(name: $0.key, value: $0.value) }
+        }
+        guard let url = comps?.url else { throw APIError.badURL(path) }
+        var req = URLRequest(url: url)
+        req.httpMethod = method
+        if !config.token.isEmpty {
+            req.setValue("Bearer \(config.token)", forHTTPHeaderField: "Authorization")
+        }
+        if let body {
+            req.httpBody = body
+            req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        }
+        return req
+    }
+
+    private func send(_ req: URLRequest) async throws -> Data {
+        do {
+            let (data, resp) = try await session.data(for: req)
+            guard let http = resp as? HTTPURLResponse else { return data }
+            if http.statusCode == 401 { throw APIError.http(401, "未授权，请重新登录") }
+            if http.statusCode >= 400 {
+                let msg = (try? JSONSerialization.jsonObject(with: data) as? [String: Any])?["error"] as? String
+                    ?? String(data: data, encoding: .utf8)?.prefix(200).description ?? "请求失败"
+                throw APIError.http(http.statusCode, msg)
+            }
+            return data
+        } catch let e as APIError {
+            throw e
+        } catch {
+            throw APIError.transport(error.localizedDescription)
+        }
+    }
+
+    func raw(path: String, method: String = "GET", query: [String: String]? = nil, json: Any? = nil) async throws -> Data {
+        var body: Data? = nil
+        if let json {
+            body = try? JSONSerialization.data(withJSONObject: json, options: [])
+        }
+        let req = try request(path: path, method: method, body: body, query: query)
+        return try await send(req)
+    }
+
+    func get<T: Decodable>(_ path: String, query: [String: String]? = nil, as type: T.Type) async throws -> T {
+        let data = try await raw(path: path, query: query)
+        return try decode(data, type)
+    }
+
+    func send<T: Decodable>(_ path: String, method: String = "POST", json: Any? = nil, as type: T.Type) async throws -> T {
+        let data = try await raw(path: path, method: method, json: json)
+        return try decode(data, type)
+    }
+
+    func decode<T: Decodable>(_ data: Data, _ type: T.Type) throws -> T {
+        do { return try JSONDecoder().decode(T.self, from: data) }
+        catch let e as DecodingError {
+            throw APIError.decode("\(e)")
+        }
+    }
+
+    // 宽松数组：后端有时返回 {items:[...]} 或直接 []
+    func list<T: Decodable>(_ path: String, query: [String: String]? = nil, as type: T.Type) async throws -> [T] {
+        let data = try await raw(path: path, query: query)
+        if let arr = try? JSONDecoder().decode([T].self, from: data) { return arr }
+        if let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+            for key in ["items", "data", "list", "tasks", "assets", "findings", "records", "skills", "agents", "tools", "profiles"] {
+                if let sub = obj[key], JSONSerialization.isValidJSONObject(sub),
+                   let subData = try? JSONSerialization.data(withJSONObject: sub) {
+                    if let arr = try? JSONDecoder().decode([T].self, from: subData) { return arr }
+                }
+            }
+        }
+        return []
+    }
+
+    // 任意 JSON 字典（用于尚未建模的端点）
+    func dict(_ path: String, query: [String: String]? = nil) async throws -> [String: AnyJSON] {
+        let data = try await raw(path: path, query: query)
+        if let d = try? JSONDecoder().decode([String: AnyJSON].self, from: data) { return d }
+        return [:]
+    }
+}

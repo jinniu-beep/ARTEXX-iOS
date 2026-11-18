@@ -1,0 +1,16 @@
+# 原始采集数据（体积大，仅保留已构建产物）
+resources/cve/raw/
+resources/cve/raw2/
+resources/cve/cve.sqlite
+
+# 构建产物
+ios/build/
+*.ipa
+Payload/
+dist/
+.build/
+
+# 系统
+.DS_Store
+Thumbs.db
+*.log

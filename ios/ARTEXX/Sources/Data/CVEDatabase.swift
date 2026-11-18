@@ -1,0 +1,171 @@
+import Foundation
+import SQLite3
+
+/// 内置 CVE 知识库（只读）：首次启动把打包的 gzip 解到 Application Support，
+/// 之后用 SQLite + FTS5 做毫秒级检索。
+final class CVEDatabase {
+    static let shared = CVEDatabase()
+    private var handle: OpaquePointer?
+    private let queue = DispatchQueue(label: "artex.cve.db")
+    private(set) var ready = false
+    private(set) var totalRows = 0
+
+    private var dbPath: URL {
+        let dir = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("ARTEXX", isDirectory: true)
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        return dir.appendingPathComponent("cve.sqlite")
+    }
+
+    func bootstrap() {
+        queue.sync { self.bootstrapSync() }
+    }
+
+    private func bootstrapSync() {
+        guard !ready else { return }
+        let target = dbPath
+        if !FileManager.default.fileExists(atPath: target.path) {
+            // 1) 优先解压打包的 gz；2) 退回未压缩版本
+            if let gz = Bundle.main.url(forResource: "cve", withExtension: "sqlite.gz"),
+               let data = try? Data(contentsOf: gz),
+               let raw = try? (data as NSData).gunzipped() {
+                try? raw.write(to: target)
+            } else if let plain = Bundle.main.url(forResource: "cve", withExtension: "sqlite"),
+                      let data = try? Data(contentsOf: plain) {
+                try? data.write(to: target)
+            } else {
+                NSLog("CVE 数据库资源缺失")
+                return
+            }
+        }
+        if sqlite3_open_v2(target.path, &handle, SQLITE_OPEN_READONLY, nil) != SQLITE_OK {
+            NSLog("CVE 数据库打开失败")
+            return
+        }
+        totalRows = scalarInt("SELECT count(*) FROM cve") ?? 0
+        ready = true
+    }
+
+    private func scalarInt(_ sql: String) -> Int? {
+        var stmt: OpaquePointer?
+        defer { sqlite3_finalize(stmt) }
+        guard sqlite3_prepare_v2(handle, sql, -1, &stmt, nil) == SQLITE_OK else { return nil }
+        guard sqlite3_step(stmt) == SQLITE_ROW else { return nil }
+        return Int(sqlite3_column_int64(stmt, 0))
+    }
+
+    // MARK: - 检索
+    func search(_ keyword: String, severity: String? = nil, vendor: String? = nil,
+                minScore: Double = 0, limit: Int = 80) -> [CVERow] {
+        guard ready else { return [] }
+        var rows: [CVERow] = []
+        let kw = keyword.trimmingCharacters(in: .whitespacesAndNewlines)
+        var sql: String
+        var binds: [String] = []
+
+        if kw.isEmpty {
+            sql = "SELECT c.id,c.title,c.severity,c.score,c.cwe,c.vendor,c.published,c.refs,c.tags FROM cve c WHERE c.score >= ?"
+            binds = ["\(minScore)"]
+        } else {
+            sql = """
+            SELECT c.id,c.title,c.severity,c.score,c.cwe,c.vendor,c.published,c.refs,c.tags
+            FROM cve_fts f JOIN cve c ON c.rowid = f.rowid
+            WHERE cve_fts MATCH ? AND c.score >= ?
+            """
+            binds = [Self.ftsQuery(kw), "\(minScore)"]
+        }
+        if let severity, !severity.isEmpty {
+            sql += " AND c.severity = '\(severity)'"
+        }
+        if let vendor, !vendor.isEmpty {
+            sql += " AND c.vendor = '\(vendor)'"
+        }
+        sql += " ORDER BY c.score DESC, c.published DESC LIMIT \(max(1, min(limit, 500)))"
+
+        var stmt: OpaquePointer?
+        defer { sqlite3_finalize(stmt) }
+        guard sqlite3_prepare_v2(handle, sql, -1, &stmt, nil) == SQLITE_OK else { return [] }
+        let transient = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
+        for (i, b) in binds.enumerated() {
+            sqlite3_bind_text(stmt, Int32(i + 1), (b as NSString).utf8String, -1, transient)
+        }
+        while sqlite3_step(stmt) == SQLITE_ROW {
+            rows.append(CVERow(
+                id: text(stmt, 0),
+                title: text(stmt, 1),
+                severity: text(stmt, 2),
+                score: sqlite3_column_double(stmt, 3),
+                cwe: text(stmt, 4),
+                vendor: text(stmt, 5),
+                published: text(stmt, 6),
+                refs: Int(sqlite3_column_int(stmt, 7)),
+                skills: text(stmt, 8).split(separator: ",").map(String.init)
+            ))
+        }
+        return rows
+    }
+
+    func detail(_ id: String) -> (desc: String, refs: Int)? {
+        guard ready else { return nil }
+        var stmt: OpaquePointer?
+        defer { sqlite3_finalize(stmt) }
+        let sql = "SELECT desc, refs FROM cve WHERE id = ? LIMIT 1"
+        guard sqlite3_prepare_v2(handle, sql, -1, &stmt, nil) == SQLITE_OK else { return nil }
+        sqlite3_bind_text(stmt, 1, (id as NSString).utf8String, -1, unsafeBitCast(-1, to: sqlite3_destructor_type.self))
+        guard sqlite3_step(stmt) == SQLITE_ROW else { return nil }
+        return (text(stmt, 0), Int(sqlite3_column_int(stmt, 1)))
+    }
+
+    func vendors(limit: Int = 60) -> [(String, Int)] {
+        guard ready else { return [] }
+        var out: [(String, Int)] = []
+        var stmt: OpaquePointer?
+        defer { sqlite3_finalize(stmt) }
+        let sql = "SELECT vendor, count(*) c FROM cve GROUP BY vendor ORDER BY c DESC LIMIT \(limit)"
+        guard sqlite3_prepare_v2(handle, sql, -1, &stmt, nil) == SQLITE_OK else { return [] }
+        while sqlite3_step(stmt) == SQLITE_ROW { out.append((text(stmt, 0), Int(sqlite3_column_int(stmt, 1)))) }
+        return out
+    }
+
+    func bySkill(_ skillID: String, limit: Int = 40) -> [CVERow] {
+        guard ready else { return [] }
+        var rows: [CVERow] = []
+        var stmt: OpaquePointer?
+        defer { sqlite3_finalize(stmt) }
+        let sql = "SELECT id,title,severity,score,cwe,vendor,published,refs,tags FROM cve WHERE tags LIKE ? ORDER BY score DESC LIMIT \(limit)"
+        guard sqlite3_prepare_v2(handle, sql, -1, &stmt, nil) == SQLITE_OK else { return [] }
+        sqlite3_bind_text(stmt, 1, ("%" + skillID + "%" as NSString).utf8String, -1, unsafeBitCast(-1, to: sqlite3_destructor_type.self))
+        while sqlite3_step(stmt) == SQLITE_ROW {
+            rows.append(CVERow(id: text(stmt, 0), title: text(stmt, 1), severity: text(stmt, 2),
+                               score: sqlite3_column_double(stmt, 3), cwe: text(stmt, 4),
+                               vendor: text(stmt, 5), published: text(stmt, 6),
+                               refs: Int(sqlite3_column_int(stmt, 7)),
+                               skills: text(stmt, 8).split(separator: ",").map(String.init)))
+        }
+        return rows
+    }
+
+    func stats() -> (total: Int, critical: Int, high: Int, medium: Int, vendors: Int) {
+        guard ready else { return (0, 0, 0, 0, 0) }
+        return (scalarInt("SELECT count(*) FROM cve") ?? 0,
+                scalarInt("SELECT count(*) FROM cve WHERE severity='critical'") ?? 0,
+                scalarInt("SELECT count(*) FROM cve WHERE severity='high'") ?? 0,
+                scalarInt("SELECT count(*) FROM cve WHERE severity='medium'") ?? 0,
+                scalarInt("SELECT count(DISTINCT vendor) FROM cve") ?? 0)
+    }
+
+    private func text(_ stmt: OpaquePointer?, _ idx: Int32) -> String {
+        guard let c = sqlite3_column_text(stmt, idx) else { return "" }
+        return String(cString: c)
+    }
+
+    /// FTS5 查询串：多词 AND，自动补前缀匹配，去掉特殊符号。
+    private static func ftsQuery(_ raw: String) -> String {
+        let tokens = raw.lowercased()
+            .components(separatedBy: CharacterSet.alphanumerics.union(CharacterSet(charactersIn: "-._")).inverted)
+            .filter { $0.count > 1 }
+            .prefix(6)
+        if tokens.isEmpty { return "\"\(raw)\"" }
+        return tokens.map { "\($0)*" }.joined(separator: " AND ")
+    }
+}
