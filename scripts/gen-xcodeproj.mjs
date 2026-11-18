@@ -94,7 +94,7 @@ for (const dir of dirs) {
   p("\t\t\t" + groupUid[dir] + " /* " + dir + " */,");
 }
 for (const f of (groupsByDir[""] || [])) p("\t\t\t" + fileRefs[f.rel] + " /* " + path.basename(f.rel) + " */,");
-p('\t\t); path = "' + APP + '"; sourceTree = "<group>"; };');
+p('\t\t); path = "' + APP + '"; sourceTree = "SOURCE_ROOT"; };');
 for (const dir of dirs) {
   if (dir === "") continue;
   const name = path.basename(dir);
@@ -102,7 +102,7 @@ for (const dir of dirs) {
   const childDirs = dirs.filter(function (d) { return d !== dir && path.dirname(d) === dir; });
   for (const cd of childDirs) p("\t\t\t" + groupUid[cd] + " /* " + path.basename(cd) + " */,");
   for (const f of groupsByDir[dir]) p("\t\t\t" + fileRefs[f.rel] + " /* " + path.basename(f.rel) + " */,");
-  p('\t\t); path = "' + name + '"; sourceTree = "<group>"; };');
+  p('\t\t); path = "' + APP + '/' + dir + '"; sourceTree = "SOURCE_ROOT"; };');
 }
 p("/* End PBXGroup section */");
 

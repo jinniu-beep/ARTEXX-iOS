@@ -67,29 +67,29 @@
 		000000000000000001000038 /* ARTEXX */ = {isa = PBXGroup; children = (
 			000000000000000001000031 /* Resources */,
 			000000000000000001000001 /* Assets.xcassets */,
-		); path = "ARTEXX"; sourceTree = "<group>"; };
+		); path = "ARTEXX"; sourceTree = "SOURCE_ROOT"; };
 		000000000000000001000031 /* Resources */ = {isa = PBXGroup; children = (
 			000000000000000001000003 /* cve.sqlite.gz */,
 			000000000000000001000005 /* exploits.json */,
 			000000000000000001000007 /* skills.json */,
-		); path = "Resources"; sourceTree = "<group>"; };
+		); path = "ARTEXX/Resources"; sourceTree = "SOURCE_ROOT"; };
 		000000000000000001000032 /* App */ = {isa = PBXGroup; children = (
 			000000000000000001000009 /* ArtExxApp.swift */,
 			00000000000000000100000B /* RootView.swift */,
-		); path = "App"; sourceTree = "<group>"; };
+		); path = "ARTEXX/Sources/App"; sourceTree = "SOURCE_ROOT"; };
 		000000000000000001000033 /* Core */ = {isa = PBXGroup; children = (
 			00000000000000000100000D /* ActivityStream.swift */,
 			00000000000000000100000F /* APIClient.swift */,
 			000000000000000001000011 /* APIs.swift */,
 			000000000000000001000013 /* ShellRunner.swift */,
 			000000000000000001000015 /* Theme.swift */,
-		); path = "Core"; sourceTree = "<group>"; };
+		); path = "ARTEXX/Sources/Core"; sourceTree = "SOURCE_ROOT"; };
 		000000000000000001000034 /* Data */ = {isa = PBXGroup; children = (
 			000000000000000001000017 /* CVEDatabase.swift */,
 			000000000000000001000019 /* CVEPlaybook.swift */,
 			00000000000000000100001B /* Gzip.swift */,
 			00000000000000000100001D /* SkillLibrary.swift */,
-		); path = "Data"; sourceTree = "<group>"; };
+		); path = "ARTEXX/Sources/Data"; sourceTree = "SOURCE_ROOT"; };
 		000000000000000001000035 /* Features */ = {isa = PBXGroup; children = (
 			00000000000000000100001F /* ConsoleView.swift */,
 			000000000000000001000021 /* CVEView.swift */,
@@ -98,10 +98,10 @@
 			000000000000000001000027 /* SkillLibraryView.swift */,
 			000000000000000001000029 /* TaskDetailView.swift */,
 			00000000000000000100002B /* TaskListView.swift */,
-		); path = "Features"; sourceTree = "<group>"; };
+		); path = "ARTEXX/Sources/Features"; sourceTree = "SOURCE_ROOT"; };
 		000000000000000001000036 /* Models */ = {isa = PBXGroup; children = (
 			00000000000000000100002D /* Models.swift */,
-		); path = "Models"; sourceTree = "<group>"; };
+		); path = "ARTEXX/Sources/Models"; sourceTree = "SOURCE_ROOT"; };
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
