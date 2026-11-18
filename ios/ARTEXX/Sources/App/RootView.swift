@@ -10,7 +10,7 @@ struct RootView: View {
             ArtexTheme.bg.ignoresSafeArea()
             if store.initializing {
                 splash
-            } else if !store.loggedIn {
+            } else if store.needsLogin {
                 LoginView()
             } else {
                 TabView(selection: $tab) {
@@ -74,16 +74,34 @@ struct LoginView: View {
                 }
                 .padding(.top, 60)
 
-                Card(title: "服务器") {
-                    TextField("http://host:8787", text: $host)
-                        .textInputAutocapitalization(.never)
-                        .autocorrectionDisabled()
-                        .keyboardType(.URL)
-                        .font(.system(size: 14, design: .monospaced))
-                        .foregroundStyle(ArtexTheme.text)
-                        .padding(10)
-                        .background(ArtexTheme.surfaceHi)
-                        .clipShape(RoundedRectangle(cornerRadius: 10))
+                Card(title: "服务器地址") {
+                    VStack(alignment: .leading, spacing: 8) {
+                        TextField("http://192.168.x.x:8787", text: $host)
+                            .textInputAutocapitalization(.never)
+                            .autocorrectionDisabled()
+                            .keyboardType(.URL)
+                            .font(.system(size: 14, design: .monospaced))
+                            .foregroundStyle(ArtexTheme.text)
+                            .padding(10)
+                            .background(ArtexTheme.surfaceHi)
+                            .clipShape(RoundedRectangle(cornerRadius: 10))
+
+                        Text("填电脑的局域网 IP，不能填 127.0.0.1（那是手机自己）")
+                            .font(.system(size: 10)).foregroundStyle(ArtexTheme.medium)
+
+                        if !ServerConfig.recentAddresses.isEmpty {
+                            ScrollView(.horizontal, showsIndicators: false) {
+                                HStack(spacing: 6) {
+                                    ForEach(ServerConfig.recentAddresses, id: \.self) { addr in
+                                        Button { host = addr } label: {
+                                            Pill(text: addr.replacingOccurrences(of: "http://", with: ""),
+                                                 color: host == addr ? ArtexTheme.accent : ArtexTheme.dim)
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
 
                 Card(title: needSetup ? "设置管理员密码" : "管理员密码") {
@@ -95,8 +113,15 @@ struct LoginView: View {
                         .clipShape(RoundedRectangle(cornerRadius: 10))
                 }
 
-                if let error = error ?? store.lastError {
-                    Text(error).font(.system(size: 12)).foregroundStyle(ArtexTheme.critical)
+                if let raw = error ?? store.lastError {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(ServerConfig.humanize(raw))
+                            .font(.system(size: 12)).foregroundStyle(ArtexTheme.critical)
+                        if ServerConfig.isLoopback(host) {
+                            Text("提示：127.0.0.1 指向手机自己，请改成电脑的局域网 IP")
+                                .font(.system(size: 11)).foregroundStyle(ArtexTheme.medium)
+                        }
+                    }
                 }
 
                 Button {
@@ -119,6 +144,25 @@ struct LoginView: View {
                     Text("检测服务器状态").font(.system(size: 13)).foregroundStyle(ArtexTheme.dim)
                 }
                 .frame(maxWidth: .infinity)
+
+                Divider().background(ArtexTheme.border).padding(.vertical, 6)
+
+                Button {
+                    store.enterOffline()
+                } label: {
+                    VStack(spacing: 4) {
+                        Text("跳过登录，离线使用")
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundStyle(ArtexTheme.accent)
+                        Text("不需要服务器 · 技能库 / CVE 知识库 / 本地控制台 全部可用")
+                            .font(.system(size: 10))
+                            .foregroundStyle(ArtexTheme.dim)
+                            .multilineTextAlignment(.center)
+                    }
+                    .frame(maxWidth: .infinity).padding(.vertical, 12)
+                    .background(ArtexTheme.surfaceHi)
+                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                }
 
                 Spacer(minLength: 40)
             }
@@ -152,6 +196,7 @@ struct LoginView: View {
             guard let token, !token.isEmpty else { error = "服务端未返回 token"; return }
             cfg.token = token
             store.apply(cfg)
+            ServerConfig.remember(host)
             store.loggedIn = true
         } catch {
             self.error = error.localizedDescription

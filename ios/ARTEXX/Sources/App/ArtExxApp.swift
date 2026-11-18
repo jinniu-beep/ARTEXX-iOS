@@ -25,6 +25,8 @@ struct ArtExxApp: App {
 @MainActor
 final class AppStore: ObservableObject {
     @Published var loggedIn = false
+    /// 离线模式：不连服务端，仅使用内置知识库 + 本地控制台
+    @Published var offlineMode = false
     @Published var initializing = true
     @Published var lastError: String?
     @Published var config: ServerConfig = ServerConfig.load()
@@ -89,4 +91,20 @@ final class AppStore: ObservableObject {
         initializing = false
         if !config.token.isEmpty { loggedIn = true }
     }
+
+    /// 进入离线模式：跳过鉴权，直接使用内置能力
+    func enterOffline() {
+        offlineMode = true
+        initializing = false
+        lastError = nil
+    }
+
+    /// 退出离线模式回到登录页
+    func leaveOffline() {
+        offlineMode = false
+        loggedIn = false
+    }
+
+    /// 是否需要显示登录页
+    var needsLogin: Bool { !loggedIn && !offlineMode }
 }

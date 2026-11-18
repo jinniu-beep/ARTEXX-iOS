@@ -104,3 +104,52 @@ struct EmptyHint: View {
         .frame(maxWidth: .infinity).padding(.vertical, 40)
     }
 }
+
+
+/// 离线模式下，需要服务端的页面用它提示
+struct OfflineNotice: View {
+    var what: String
+    @EnvironmentObject var store: AppStore
+
+    var body: some View {
+        VStack(spacing: 14) {
+            Image(systemName: "wifi.slash")
+                .font(.system(size: 34))
+                .foregroundStyle(ArtexTheme.medium)
+            Text(what + " 需要连接 ARTEXX 服务端")
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundStyle(ArtexTheme.text)
+            Text("当前处于离线模式。\n内置技能库、CVE 知识库、cmd 控制台可直接使用。")
+                .font(.system(size: 12))
+                .foregroundStyle(ArtexTheme.dim)
+                .multilineTextAlignment(.center)
+            Button("去连接服务器") { store.leaveOffline() }
+                .font(.system(size: 13, weight: .semibold))
+                .padding(.horizontal, 18).padding(.vertical, 9)
+                .background(ArtexTheme.accent).foregroundStyle(.black)
+                .clipShape(Capsule())
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .padding(30)
+        .background(ArtexTheme.bg)
+    }
+}
+
+/// 离线状态条（主界面顶部）
+struct OfflineBadge: View {
+    @EnvironmentObject var store: AppStore
+    var body: some View {
+        if store.offlineMode {
+            HStack(spacing: 6) {
+                Image(systemName: "wifi.slash").font(.system(size: 9))
+                Text("离线模式").font(.system(size: 10, weight: .semibold))
+                Spacer()
+                Button("连接服务器") { store.leaveOffline() }
+                    .font(.system(size: 10))
+            }
+            .foregroundStyle(ArtexTheme.medium)
+            .padding(.horizontal, 12).padding(.vertical, 5)
+            .background(ArtexTheme.medium.opacity(0.12))
+        }
+    }
+}

@@ -23,6 +23,45 @@ struct ServerConfig: Codable, Equatable {
         if gatewayMode { return "http://127.0.0.1:\(gatewayPort)" }
         return baseURL.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
     }
+
+    // MARK: - 地址辅助
+    static func isLoopback(_ s: String) -> Bool {
+        let t = s.lowercased()
+        return t.contains("127.0.0.1") || t.contains("localhost") || t.contains("0.0.0.0")
+    }
+
+    static let recentKey = "artex.recent.addresses"
+    static var recentAddresses: [String] {
+        (UserDefaults.standard.stringArray(forKey: recentKey) ?? []).filter { !isLoopback($0) }
+    }
+    static func remember(_ addr: String) {
+        guard !isLoopback(addr) else { return }
+        var list = UserDefaults.standard.stringArray(forKey: recentKey) ?? []
+        list.removeAll { $0 == addr }
+        list.insert(addr, at: 0)
+        UserDefaults.standard.set(Array(list.prefix(5)), forKey: recentKey)
+    }
+
+    /// 把系统错误翻译成人话
+    static func humanize(_ raw: String) -> String {
+        let t = raw.lowercased()
+        if t.contains("超时") || t.contains("timed out") || t.contains("timeout") {
+            return "连接超时：电脑上的 ARTEXX 服务没启动，或手机和电脑不在同一网络"
+        }
+        if t.contains("拒绝") || t.contains("refused") || t.contains("could not connect") {
+            return "连接被拒绝：服务器端口没开放，确认用 -addr :8787 启动"
+        }
+        if t.contains("找不到") || t.contains("not found") || t.contains("unsupported url") {
+            return "地址格式不对，应形如 http://192.168.1.10:8787"
+        }
+        if t.contains("certificate") || t.contains("ssl") || t.contains("tls") {
+            return "证书校验失败：自签证书需要先在系统里信任"
+        }
+        if t.contains("未授权") || t.contains("401") {
+            return "密码错误或会话过期，请重新输入管理员密码"
+        }
+        return raw
+    }
 }
 
 enum APIError: LocalizedError {

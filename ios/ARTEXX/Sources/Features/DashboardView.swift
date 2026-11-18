@@ -15,6 +15,7 @@ struct DashboardView: View {
 
     var body: some View {
         NavigationStack {
+            if store.offlineMode { offlineDashboard } else {
             ScrollView {
                 VStack(spacing: 14) {
                     header
@@ -88,6 +89,54 @@ struct DashboardView: View {
                 sse.start()
             }
             .onDisappear { sse.stop() }
+            }
+        }
+    }
+
+    /// 离线版仪表盘：展示内置知识库统计（不依赖服务端）
+    private var offlineDashboard: some View {
+        ScrollView {
+            VStack(spacing: 14) {
+                OfflineBadge()
+                HStack {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("ARTEXX").font(.system(size: 22, weight: .heavy, design: .rounded)).foregroundStyle(ArtexTheme.accent)
+                        Text("离线模式 · 内置知识库").font(.system(size: 10)).foregroundStyle(ArtexTheme.dim)
+                    }
+                    Spacer()
+                }
+                LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
+                    MetricTile(label: "CVE 条数", value: "\(cveStats.total)")
+                    MetricTile(label: "严重", value: "\(cveStats.critical)", tint: ArtexTheme.critical)
+                    MetricTile(label: "高危", value: "\(cveStats.high)", tint: ArtexTheme.high)
+                    MetricTile(label: "技能", value: "\(SkillLibrary.shared.all.count)", tint: ArtexTheme.ok)
+                }
+                Card(title: "离线可用") {
+                    VStack(alignment: .leading, spacing: 8) {
+                        offlineRow("shield.lefthalf.filled", "CVE 知识库", "\(cveStats.total) 条，含四段式攻击指引")
+                        offlineRow("square.stack.3d.up", "技能库", "\(SkillLibrary.shared.all.count) 条，可编排")
+                        offlineRow("terminal", "cmd 控制台", "本地命令 + dig/port/banner/curl")
+                        offlineRow("doc.text.magnifyingglass", "SQL 检索", "FTS5 全文索引，毫秒级")
+                    }
+                }
+                Card(title: "需要服务端") {
+                    Text("任务、发现、资产、流量、对话等需要连上 ARTEXX 服务端。点上方「连接服务器」切换。")
+                        .font(.system(size: 12)).foregroundStyle(ArtexTheme.dim)
+                }
+            }.padding(14)
+        }
+        .background(ArtexTheme.bg)
+        .navigationTitle("仪表盘")
+    }
+
+    private func offlineRow(_ icon: String, _ title: String, _ sub: String) -> some View {
+        HStack(spacing: 10) {
+            Image(systemName: icon).font(.system(size: 14)).foregroundStyle(ArtexTheme.accent).frame(width: 22)
+            VStack(alignment: .leading, spacing: 1) {
+                Text(title).font(.system(size: 13, weight: .medium)).foregroundStyle(ArtexTheme.text)
+                Text(sub).font(.system(size: 10)).foregroundStyle(ArtexTheme.dim)
+            }
+            Spacer()
         }
     }
 

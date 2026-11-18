@@ -29,7 +29,12 @@ struct MoreView: View {
                         Spacer()
                         Text(APIClient.shared.config.effectiveBase).font(.system(size: 11, design: .monospaced)).foregroundStyle(ArtexTheme.dim)
                     }
-                    Button("退出登录") { store.logout() }.foregroundStyle(ArtexTheme.critical)
+                    if store.offlineMode {
+                        Text("当前：离线模式").foregroundStyle(ArtexTheme.medium)
+                        Button("连接服务器") { store.leaveOffline() }
+                    } else {
+                        Button("退出登录") { store.logout() }.foregroundStyle(ArtexTheme.critical)
+                    }
                 }
             }
             .scrollContentBackground(.hidden)
@@ -41,9 +46,13 @@ struct MoreView: View {
 
 // MARK: - 对话
 struct ChatListView: View {
+    @EnvironmentObject var store: AppStore
     @State private var convs: [ConversationItem] = []
     var body: some View {
-        List {
+        if store.offlineMode {
+            OfflineNotice(what: "对话")
+        } else {
+List {
             ForEach(convs) { c in
                 NavigationLink {
                     ChatDetailView(conv: c)
@@ -58,6 +67,7 @@ struct ChatListView: View {
         .scrollContentBackground(.hidden).background(ArtexTheme.bg)
         .navigationTitle("对话")
         .task { convs = (try? await ChatAPI.conversations()) ?? [] }
+        }
     }
 }
 
@@ -99,9 +109,13 @@ struct ChatDetailView: View {
 
 // MARK: - 发现
 struct FindingsView: View {
+    @EnvironmentObject var store: AppStore
     @State private var items: [Finding] = []
     var body: some View {
-        List {
+        if store.offlineMode {
+            OfflineNotice(what: "发现")
+        } else {
+List {
             ForEach(items) { f in
                 VStack(alignment: .leading, spacing: 4) {
                     HStack {
@@ -117,14 +131,19 @@ struct FindingsView: View {
         .scrollContentBackground(.hidden).background(ArtexTheme.bg)
         .navigationTitle("发现")
         .task { items = (try? await FindingAPI.list()) ?? [] }
+        }
     }
 }
 
 // MARK: - 资产
 struct AssetsView: View {
+    @EnvironmentObject var store: AppStore
     @State private var items: [Asset] = []
     var body: some View {
-        List {
+        if store.offlineMode {
+            OfflineNotice(what: "资产")
+        } else {
+List {
             ForEach(items) { a in
                 HStack {
                     VStack(alignment: .leading, spacing: 2) {
@@ -139,14 +158,19 @@ struct AssetsView: View {
         .scrollContentBackground(.hidden).background(ArtexTheme.bg)
         .navigationTitle("资产")
         .task { items = (try? await AssetAPI.list()) ?? [] }
+        }
     }
 }
 
 // MARK: - 工具执行
 struct CommandsView: View {
+    @EnvironmentObject var store: AppStore
     @State private var items: [CommandRecord] = []
     var body: some View {
-        List {
+        if store.offlineMode {
+            OfflineNotice(what: "工具执行")
+        } else {
+List {
             ForEach(items) { c in
                 VStack(alignment: .leading, spacing: 4) {
                     HStack {
@@ -161,14 +185,19 @@ struct CommandsView: View {
         .scrollContentBackground(.hidden).background(ArtexTheme.bg)
         .navigationTitle("工具执行")
         .task { items = (try? await OpsAPI.commands()) ?? [] }
+        }
     }
 }
 
 // MARK: - 流量
 struct TrafficView: View {
+    @EnvironmentObject var store: AppStore
     @State private var data: [String: AnyJSON] = [:]
     var body: some View {
-        List {
+        if store.offlineMode {
+            OfflineNotice(what: "流量")
+        } else {
+List {
             ForEach(data.keys.sorted(), id: \.self) { k in
                 HStack {
                     Text(k).font(.system(size: 12)).foregroundStyle(ArtexTheme.dim)
@@ -180,15 +209,20 @@ struct TrafficView: View {
         .scrollContentBackground(.hidden).background(ArtexTheme.bg)
         .navigationTitle("流量")
         .task { data = (try? await OpsAPI.trafficHosts()) ?? [:] }
+        }
     }
 }
 
 // MARK: - 工作空间
 struct WorkspaceView: View {
+    @EnvironmentObject var store: AppStore
     @State private var content = ""
     @State private var path = ""
     var body: some View {
-        VStack(spacing: 0) {
+        if store.offlineMode {
+            OfflineNotice(what: "工作空间")
+        } else {
+VStack(spacing: 0) {
             HStack {
                 TextField("路径，留空为根目录", text: $path)
                     .textFieldStyle(.roundedBorder).font(.system(size: 12, design: .monospaced))
@@ -202,15 +236,20 @@ struct WorkspaceView: View {
         }
         .background(ArtexTheme.bg)
         .navigationTitle("工作空间")
+        }
     }
 }
 
 // MARK: - 系统页
 struct LLMView: View {
+    @EnvironmentObject var store: AppStore
     @State private var profiles: [LLMProfile] = []
     @State private var pool: [String: AnyJSON] = [:]
     var body: some View {
-        List {
+        if store.offlineMode {
+            OfflineNotice(what: "LLM 配置")
+        } else {
+List {
             Section("配置") {
                 ForEach(profiles) { p in
                     HStack {
@@ -243,13 +282,18 @@ struct LLMView: View {
             profiles = (try? await LLMAPI.profiles()) ?? []
             pool = (try? await LLMAPI.pool()) ?? [:]
         }
+        }
     }
 }
 
 struct AgentsView: View {
+    @EnvironmentObject var store: AppStore
     @State private var agents: [AgentItem] = []
     var body: some View {
-        List {
+        if store.offlineMode {
+            OfflineNotice(what: "Agent")
+        } else {
+List {
             ForEach(agents) { a in
                 VStack(alignment: .leading, spacing: 2) {
                     Text(a.name ?? a.key ?? a.id).font(.system(size: 13)).foregroundStyle(ArtexTheme.text)
@@ -260,13 +304,18 @@ struct AgentsView: View {
         .scrollContentBackground(.hidden).background(ArtexTheme.bg)
         .navigationTitle("Agent")
         .task { agents = (try? await AgentAPI.list()) ?? [] }
+        }
     }
 }
 
 struct ToolsView: View {
+    @EnvironmentObject var store: AppStore
     @State private var tools: [ToolItem] = []
     var body: some View {
-        List {
+        if store.offlineMode {
+            OfflineNotice(what: "工具开关")
+        } else {
+List {
             ForEach(tools) { t in
                 VStack(alignment: .leading, spacing: 3) {
                     Text(t.key ?? t.id).font(.system(size: 13, design: .monospaced)).foregroundStyle(ArtexTheme.text)
@@ -278,13 +327,18 @@ struct ToolsView: View {
         .scrollContentBackground(.hidden).background(ArtexTheme.bg)
         .navigationTitle("工具")
         .task { tools = (try? await AgentAPI.tools()) ?? [] }
+        }
     }
 }
 
 struct ApprovalsView: View {
+    @EnvironmentObject var store: AppStore
     @State private var data: [String: AnyJSON] = [:]
     var body: some View {
-        List {
+        if store.offlineMode {
+            OfflineNotice(what: "拦截审批")
+        } else {
+List {
             ForEach(data.keys.sorted(), id: \.self) { k in
                 HStack {
                     Text(k).font(.system(size: 11)).foregroundStyle(ArtexTheme.dim)
@@ -296,13 +350,18 @@ struct ApprovalsView: View {
         .scrollContentBackground(.hidden).background(ArtexTheme.bg)
         .navigationTitle("拦截审批")
         .task { data = (try? await AgentAPI.approvals()) ?? [:] }
+        }
     }
 }
 
 struct LogsView: View {
+    @EnvironmentObject var store: AppStore
     @State private var data: [String: AnyJSON] = [:]
     var body: some View {
-        ScrollView {
+        if store.offlineMode {
+            OfflineNotice(what: "日志")
+        } else {
+ScrollView {
             Text(data.keys.sorted().map { "\($0): \(data[$0]?.display ?? "")" }.joined(separator: "\n"))
                 .font(.system(size: 10, design: .monospaced)).foregroundStyle(ArtexTheme.text)
                 .frame(maxWidth: .infinity, alignment: .leading).padding(12)
@@ -310,6 +369,7 @@ struct LogsView: View {
         .background(ArtexTheme.bg)
         .navigationTitle("日志")
         .task { data = (try? await OpsAPI.logs()) ?? [:] }
+        }
     }
 }
 

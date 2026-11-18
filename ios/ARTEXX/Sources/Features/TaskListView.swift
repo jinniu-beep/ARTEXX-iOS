@@ -11,6 +11,9 @@ struct TaskListView: View {
 
     var body: some View {
         NavigationStack {
+            if store.offlineMode {
+                OfflineNotice(what: "任务列表")
+            } else {
             VStack(spacing: 0) {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 8) {
@@ -65,6 +68,7 @@ struct TaskListView: View {
                 NewTaskView { await load() }
             }
             .task { await load() }
+            }
         }
     }
 
