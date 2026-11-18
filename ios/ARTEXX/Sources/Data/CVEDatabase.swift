@@ -28,7 +28,7 @@ final class CVEDatabase {
             // 1) 优先解压打包的 gz；2) 退回未压缩版本
             if let gz = Bundle.main.url(forResource: "cve", withExtension: "sqlite.gz"),
                let data = try? Data(contentsOf: gz),
-               let raw = try? (data as NSData).gunzipped() {
+               let raw = data.gunzipped() {
                 try? raw.write(to: target)
             } else if let plain = Bundle.main.url(forResource: "cve", withExtension: "sqlite"),
                       let data = try? Data(contentsOf: plain) {

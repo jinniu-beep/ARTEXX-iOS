@@ -16,7 +16,7 @@ struct CVEPlaybook {
         let text = (desc + " " + row.title).lowercased()
         let cwe = row.cwe
         let vendor = row.vendor
-        let profile = Profile.detect(cwe: cwe, text: text, vendor: vendor)
+        let profile = Profile.detect(cwe: cwe, text: text, vendor: vendor, cveID: row.id)
 
         let exploit = ExploitIndex.shared.lookup(row.id)
 
@@ -74,7 +74,7 @@ struct CVEPlaybook {
         var prereqs: [String]
         var payloads: [String]
 
-        static func detect(cwe: String, text: String, vendor: String) -> Profile {
+        static func detect(cwe: String, text: String, vendor: String, cveID: String) -> Profile {
             let c = cwe.uppercased()
             func has(_ ks: [String]) -> Bool { ks.contains { text.contains($0) } }
 
@@ -248,7 +248,7 @@ struct CVEPlaybook {
                 payloads: [
                     "nmap -Pn -sV -p<port> <ip>          # 版本确认",
                     "curl -s '<endpoint>' -D- | head -40  # 行为差异对比",
-                    "nuclei -u <target> -id \(row.id)     # 有模板时直接验证"
+                    "nuclei -u <target> -id " + cveID + "    # 有模板时直接验证"
                 ])
         }
     }

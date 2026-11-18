@@ -253,7 +253,7 @@ struct ConversationItem: Codable, Identifiable, Hashable {
     }
 }
 
-struct ChatMessage: Codable, Identifiable, Hashable {
+struct ChatMessage: Decodable, Identifiable, Hashable {
     var id: String = UUID().uuidString
     var role: String
     var content: String
@@ -272,7 +272,7 @@ struct ChatMessage: Codable, Identifiable, Hashable {
 }
 
 // MARK: - Activity（SSE 实时流）
-struct ActivityEvent: Codable, Identifiable, Hashable {
+struct ActivityEvent: Decodable, Identifiable, Hashable {
     var id: String = UUID().uuidString
     var kind: String?
     var summary: String?
