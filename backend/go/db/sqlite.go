@@ -8,15 +8,28 @@ package db
 import (
 	"context"
 	"database/sql"
+	"database/sql/driver"
 	_ "embed"
 	"fmt"
 	"time"
 
-	_ "modernc.org/sqlite" // database/sql driver "sqlite" (pure Go, no cgo)
+	sqlitelib "modernc.org/sqlite" // database/sql driver "sqlite" (pure Go, no cgo)
 )
 
 //go:embed schema_sqlite.sql
 var sqliteSchema string
+
+// SQLite has no now(); the shared db/ SQL calls now() in ~58 places (and the
+// converted schema uses datetime('now') for defaults). Registering now() as a
+// scalar function that returns SQLite's text-timestamp form lets all that
+// Postgres-style SQL run unchanged instead of rewriting every call site. The
+// registration is global to the modernc "sqlite" driver and harmless on
+// platforms that never open a SQLite connection.
+func init() {
+	sqlitelib.MustRegisterScalarFunction("now", 0, func(_ *sqlitelib.FunctionContext, _ []driver.Value) (driver.Value, error) {
+		return time.Now().UTC().Format("2006-01-02 15:04:05"), nil
+	})
+}
 
 // sqliteDSN builds a modernc DSN. "" / ":memory:" → a shared in-memory database
 // (used by the probe/tests); any other value is treated as a file path.
