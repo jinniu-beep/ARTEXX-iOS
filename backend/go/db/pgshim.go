@@ -15,7 +15,10 @@ import (
 	"context"
 	"database/sql"
 	"database/sql/driver"
+	"encoding/json"
+	"reflect"
 	"regexp"
+	"time"
 )
 
 func init() {
@@ -82,6 +85,30 @@ func (c *shimConn) BeginTx(ctx context.Context, opts driver.TxOptions) (driver.T
 	return c.Conn.Begin() //nolint:staticcheck
 }
 
+// CheckNamedValue converts argument types that Postgres accepts but modernc
+// rejects into their SQLite form: Go slices/maps/structs (bound to PG arrays like
+// bigint[]/text[]/jsonb[]) become JSON text, and []byte (json.RawMessage) becomes
+// a string so JSON columns land as TEXT (json_each/json_extract need text, not a
+// BLOB). Scalars are left to the default converter.
+func (c *shimConn) CheckNamedValue(nv *driver.NamedValue) error {
+	switch v := nv.Value.(type) {
+	case []byte:
+		nv.Value = string(v)
+		return nil
+	case nil, bool, int64, float64, string, time.Time:
+		return driver.ErrSkip
+	default:
+		switch reflect.ValueOf(v).Kind() {
+		case reflect.Slice, reflect.Array, reflect.Map, reflect.Struct:
+			if b, err := json.Marshal(v); err == nil {
+				nv.Value = string(b)
+				return nil
+			}
+		}
+		return driver.ErrSkip
+	}
+}
+
 var (
 	// `expr::type` and `expr::type[]` → drop the cast (SQLite is dynamically typed;
 	// on SQLite the operand already has the right affinity).
@@ -100,6 +127,9 @@ var (
 	reStrAggDistinct = regexp.MustCompile(`(?i)STRING_AGG\(\s*DISTINCT\s+([A-Za-z_][A-Za-z0-9_.]*)\s*,\s*'[^']*'\s*\)`)
 	// Non-distinct `STRING_AGG(expr, sep)` → `GROUP_CONCAT(expr, sep)` (same shape).
 	reStrAgg = regexp.MustCompile(`(?i)\bSTRING_AGG\(`)
+	// The recurring asset-merge idiom `(SELECT ARRAY(SELECT DISTINCT unnest(A || B)))`
+	// → a JSON set-union over the two arrays (columns are JSON text on SQLite).
+	reArrayMerge = regexp.MustCompile(`(?i)\(\s*SELECT\s+ARRAY\(\s*SELECT\s+DISTINCT\s+unnest\(\s*([\w.]+)\s*\|\|\s*([\w.]+)\s*\)\s*\)\s*\)`)
 )
 
 func rewriteSQL(q string) string {
@@ -121,5 +151,7 @@ func rewriteSQL(q string) string {
 	q = reForUpdate.ReplaceAllString(q, "")
 	q = reStrAggDistinct.ReplaceAllString(q, "GROUP_CONCAT(DISTINCT $1)")
 	q = reStrAgg.ReplaceAllString(q, "GROUP_CONCAT(")
+	q = reArrayMerge.ReplaceAllString(q,
+		`(SELECT json_group_array(value) FROM (SELECT value FROM json_each(COALESCE(${1},'[]')) UNION SELECT value FROM json_each(COALESCE(${2},'[]'))))`)
 	return q
 }
