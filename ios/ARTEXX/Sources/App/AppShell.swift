@@ -83,16 +83,23 @@ struct AppShell: View {
     @State private var selection: NavEntry = .dashboard
     @State private var showSidebar = false
     @State private var showModel = false
+    /// true = 直接显示原版 Web UI（WKWebView），false = 原生 SwiftUI
+    @AppStorage("artex.useWebUI") private var useWebUI = true
 
     var body: some View {
         ZStack(alignment: .leading) {
             ArtexTheme.bg.ignoresSafeArea()
 
             // 内容区（对应 SidebarInset）
-            VStack(spacing: 0) {
-                topBar
-                OfflineBadge()
-                content
+            if useWebUI {
+                WebUIView()
+                    .ignoresSafeArea(edges: .bottom)
+            } else {
+                VStack(spacing: 0) {
+                    topBar
+                    OfflineBadge()
+                    content
+                }
             }
 
             // 抽屉侧边栏
@@ -108,6 +115,21 @@ struct AppShell: View {
             }
         }
         .sheet(isPresented: $showModel) { NavigationStack { LLMConfigView() } }
+        .overlay(alignment: .topTrailing) {
+            if useWebUI {
+                Button {
+                    useWebUI = false
+                } label: {
+                    Image(systemName: "iphone.gen3")
+                        .font(.system(size: 11))
+                        .foregroundStyle(ArtexTheme.dim)
+                        .padding(7)
+                        .background(ArtexTheme.surface.opacity(0.9))
+                        .clipShape(Circle())
+                }
+                .padding(.top, 52).padding(.trailing, 10)
+            }
+        }
     }
 
     // 顶栏：汉堡 + 当前页标题 + 操作

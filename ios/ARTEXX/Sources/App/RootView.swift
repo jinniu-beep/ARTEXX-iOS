@@ -10,7 +10,7 @@ struct RootView: View {
             ArtexTheme.bg.ignoresSafeArea()
             if store.initializing {
                 splash
-            } else if store.needsLogin {
+            } else if store.needsLogin && !UserDefaults.standard.bool(forKey: "artex.webui.skipLogin") {
                 LoginView()
             } else {
                 AppShell()

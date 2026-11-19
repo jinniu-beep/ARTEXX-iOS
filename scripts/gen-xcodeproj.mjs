@@ -15,6 +15,7 @@ function walk(dir, base) {
     const rel = base ? base + "/" + e.name : e.name;
     if (e.isDirectory()) {
       if (e.name.endsWith(".xcassets")) { out.push({ rel: rel, type: "assets" }); continue; }
+      if (e.name === "webui") { out.push({ rel: rel, type: "folder" }); continue; }
       out = out.concat(walk(path.join(dir, e.name), rel));
     } else {
       const ext = path.extname(e.name);
@@ -37,7 +38,7 @@ for (const f of files) {
   buildFiles[f.rel] = uid();
 }
 const swift = files.filter(function (f) { return f.type === "swift"; });
-const resources = files.filter(function (f) { return f.type === "resource" || f.type === "assets"; });
+const resources = files.filter(function (f) { return f.type === "resource" || f.type === "assets" || f.type === "folder"; });
 
 const L = [];
 function p(s) { L.push(s); }
@@ -63,6 +64,7 @@ for (const f of files) {
   const n = path.basename(f.rel);
   let kind = "sourcecode.swift";
   if (f.type === "assets") kind = "folder.assetcatalog";
+  else if (f.type === "folder") kind = "folder";
   else if (f.type === "resource") kind = path.extname(f.rel) === ".json" ? "text.json" : "file";
   p('\t\t' + fileRefs[f.rel] + " /* " + n + ' */ = {isa = PBXFileReference; lastKnownFileType = ' + kind + '; name = "' + n + '"; path = "' + APP + '/' + f.rel + '"; sourceTree = "SOURCE_ROOT"; };');
 }
