@@ -29,8 +29,12 @@ import (
 // the SQLite data layer (phase A3) lands. This file is the structural entry; it
 // compiles into libartex.a today and starts serving once the store layer is iOS-
 // native.
-func RunEmbedded(ctx context.Context, port int, dataDir string) error {
+func RunEmbedded(ctx context.Context, port int, dataDir, webuiDir string) error {
 	StartLogCapture()
+
+	// Serve the bundled static frontend from the Go server so the WebView gets the
+	// UI and same-origin /api from one port (our build has no embedded frontend).
+	SetWebUIDir(webuiDir)
 
 	// Route the data layer to SQLite before opening stores — iOS has no Postgres.
 	pgdb.SetSQLiteMode(filepath.Join(dataDir, "artex.sqlite"))

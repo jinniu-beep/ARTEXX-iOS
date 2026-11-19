@@ -25,11 +25,12 @@ var cancel context.CancelFunc
 // data directory. Returns 0 on success (server bound and serving), -1 on failure.
 //
 //export ArtexStart
-func ArtexStart(port C.int, dataDir *C.char) C.int {
+func ArtexStart(port C.int, dataDir *C.char, webuiDir *C.char) C.int {
 	dir := C.GoString(dataDir)
+	web := C.GoString(webuiDir)
 	ctx, c := context.WithCancel(context.Background())
 	cancel = c
-	if err := server.RunEmbedded(ctx, int(port), dir); err != nil {
+	if err := server.RunEmbedded(ctx, int(port), dir, web); err != nil {
 		c()
 		cancel = nil
 		return -1

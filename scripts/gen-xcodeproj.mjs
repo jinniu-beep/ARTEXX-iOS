@@ -2,8 +2,10 @@
 // gen-xcodeproj.mjs — 生成可直接用 Xcode 打开/命令行构建的工程文件（纯拼接，无模板字符串）
 import fs from "node:fs";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 
-const ROOT = "E:/ds/ARTEXX-iOS/ios";
+// Repo-relative so this runs on any machine / in CI (was a hardcoded Windows path).
+const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "ios");
 const APP = "ARTEXX";
 const projDir = path.join(ROOT, APP + ".xcodeproj");
 fs.mkdirSync(projDir, { recursive: true });
@@ -40,6 +42,11 @@ for (const f of files) {
 const swift = files.filter(function (f) { return f.type === "swift"; });
 const resources = files.filter(function (f) { return f.type === "resource" || f.type === "assets" || f.type === "folder"; });
 
+// Go c-archive + system frameworks are linked manually (walk() ignores .a/.framework).
+const libaRef = uid(), libaBuild = uid();
+const secRef = uid(), secBuild = uid();
+const cfRef = uid(), cfBuild = uid();
+
 const L = [];
 function p(s) { L.push(s); }
 
@@ -56,6 +63,9 @@ for (const f of swift.concat(resources)) {
   const n = path.basename(f.rel);
   p("\t\t" + buildFiles[f.rel] + " /* " + n + " */ = {isa = PBXBuildFile; fileRef = " + fileRefs[f.rel] + " /* " + n + " */; };");
 }
+p("\t\t" + libaBuild + " /* libartex.a */ = {isa = PBXBuildFile; fileRef = " + libaRef + " /* libartex.a */; };");
+p("\t\t" + secBuild + " /* Security.framework */ = {isa = PBXBuildFile; fileRef = " + secRef + " /* Security.framework */; };");
+p("\t\t" + cfBuild + " /* CoreFoundation.framework */ = {isa = PBXBuildFile; fileRef = " + cfRef + " /* CoreFoundation.framework */; };");
 p("/* End PBXBuildFile section */");
 
 p("\n/* Begin PBXFileReference section */");
@@ -68,6 +78,9 @@ for (const f of files) {
   else if (f.type === "resource") kind = path.extname(f.rel) === ".json" ? "text.json" : "file";
   p('\t\t' + fileRefs[f.rel] + " /* " + n + ' */ = {isa = PBXFileReference; lastKnownFileType = ' + kind + '; name = "' + n + '"; path = "' + APP + '/' + f.rel + '"; sourceTree = "SOURCE_ROOT"; };');
 }
+p('\t\t' + libaRef + ' /* libartex.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = "libartex.a"; path = "' + APP + '/Go/libartex.a"; sourceTree = "SOURCE_ROOT"; };');
+p('\t\t' + secRef + ' /* Security.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = "Security.framework"; path = "System/Library/Frameworks/Security.framework"; sourceTree = SDKROOT; };');
+p('\t\t' + cfRef + ' /* CoreFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = "CoreFoundation.framework"; path = "System/Library/Frameworks/CoreFoundation.framework"; sourceTree = SDKROOT; };');
 const appRef = uid();
 p("\t\t" + appRef + " /* " + APP + '.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = ' + APP + ".app; sourceTree = BUILT_PRODUCTS_DIR; };");
 p("/* End PBXFileReference section */");
@@ -171,7 +184,11 @@ p("\n/* Begin PBXFrameworksBuildPhase section */");
 p("\t\t" + frameworksPhase + " /* Frameworks */ = {");
 p("\t\t\tisa = PBXFrameworksBuildPhase;");
 p("\t\t\tbuildActionMask = 2147483647;");
-p("\t\t\tfiles = (\n\t\t\t);");
+p("\t\t\tfiles = (");
+p("\t\t\t\t" + libaBuild + " /* libartex.a in Frameworks */,");
+p("\t\t\t\t" + secBuild + " /* Security.framework in Frameworks */,");
+p("\t\t\t\t" + cfBuild + " /* CoreFoundation.framework in Frameworks */,");
+p("\t\t\t);");
 p("\t\t\trunOnlyForDeploymentPostprocessing = 0;");
 p("\t\t};");
 p("/* End PBXFrameworksBuildPhase section */");
@@ -206,7 +223,11 @@ function appSettings(debug) {
     "SWIFT_VERSION = 5.0;",
     'TARGETED_DEVICE_FAMILY = "1,2";',
     "CODE_SIGNING_ALLOWED = YES;",
-    "CODE_SIGNING_REQUIRED = NO;"
+    "CODE_SIGNING_REQUIRED = NO;",
+    'SWIFT_OBJC_BRIDGING_HEADER = "' + APP + '/ARTEXX-Bridging-Header.h";',
+    'LIBRARY_SEARCH_PATHS = ("$(inherited)", "$(SRCROOT)/' + APP + '/Go");',
+    'HEADER_SEARCH_PATHS = ("$(inherited)", "$(SRCROOT)/' + APP + '/Go");',
+    'OTHER_LDFLAGS = ("$(inherited)", "-lresolv");'
   ];
   if (debug) s.push("SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;");
   return s;

@@ -7,8 +7,11 @@ struct ArtExxApp: App {
     init() {
         // 数据库在后台解压，不阻塞启动
         CVEDatabase.shared.bootstrap()
-        // 内置服务：同时提供原版 Web UI 静态文件 + /api 接口
-        EmbeddedServer.shared.start()
+        // 内置服务：优先启动真·Go 后端（libartex.a → ArtexStart，提供真实 /api + 内置 Web UI）；
+        // 启动失败再回落到 Swift 版 EmbeddedServer（静态文件 + 兼容层）。
+        if !GoBackend.shared.start(port: 8787) {
+            EmbeddedServer.shared.start()
+        }
         UserDefaults.standard.set(true, forKey: "artex.webui.skipLogin")
         UINavigationBar.appearance().largeTitleTextAttributes = [.foregroundColor: UIColor.white]
     }
