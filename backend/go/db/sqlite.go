@@ -31,6 +31,20 @@ func init() {
 	})
 }
 
+// Mode routing: on iOS, RunEmbedded calls SetSQLiteMode before opening stores so
+// the shared Open/DSN/coordinateWithSchemaMigration (defined in the Postgres-
+// oriented db.go) delegate here instead of touching Postgres.
+var (
+	sqliteMode     bool
+	sqliteFilePath string
+)
+
+// SetSQLiteMode routes Open/DSN to SQLite at dbPath. Call once before NewManager.
+func SetSQLiteMode(dbPath string) {
+	sqliteMode = true
+	sqliteFilePath = dbPath
+}
+
 // sqliteDSN builds a modernc DSN. "" / ":memory:" → a shared in-memory database
 // (used by the probe/tests); any other value is treated as a file path.
 func sqliteDSN(dbPath string) string {

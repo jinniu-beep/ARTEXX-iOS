@@ -7,8 +7,7 @@ name: A3 SQLite dialect probe
 on:
   push:
     paths:
-      - 'backend/go/cmd/sqliteprobe/**'
-      - 'backend/go/db/**'
+      - 'backend/go/**'
       - 'backend/schema.sqlite.sql'
       - '.github/workflows/sqlite-probe.yml'
   workflow_dispatch: {}
@@ -33,3 +32,7 @@ jobs:
       - name: Run SQLite dialect probe
         working-directory: backend/go
         run: go run ./cmd/sqliteprobe ../../backend/schema.sqlite.sql
+
+      - name: Run full-boot probe (NewManager -> Handler on SQLite)
+        working-directory: backend/go
+        run: go run ./cmd/bootprobe

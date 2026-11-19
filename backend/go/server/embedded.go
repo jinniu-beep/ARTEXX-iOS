@@ -9,6 +9,8 @@ import (
 	"path/filepath"
 	"strconv"
 	"time"
+
+	pgdb "github.com/Autumn-27/artex/db"
 )
 
 // RunEmbedded boots the full ARTEX backend in-process and serves the real API on
@@ -29,6 +31,9 @@ import (
 // native.
 func RunEmbedded(ctx context.Context, port int, dataDir string) error {
 	StartLogCapture()
+
+	// Route the data layer to SQLite before opening stores — iOS has no Postgres.
+	pgdb.SetSQLiteMode(filepath.Join(dataDir, "artex.sqlite"))
 
 	// proxy "" → the MITM traffic-recording subsystem stays off on iOS (an app
 	// cannot rewrite the system proxy anyway). Everything else boots as on desktop.

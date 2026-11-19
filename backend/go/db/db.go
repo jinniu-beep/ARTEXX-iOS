@@ -80,6 +80,9 @@ func withSchemaMigrationLock(ctx context.Context, sqlDB *sql.DB, action func(*sq
 // mutually exclusive with startup DDL while allowing ordinary runtime queries
 // to continue normally.
 func coordinateWithSchemaMigration(tx *sql.Tx) error {
+	if sqliteMode {
+		return nil // SQLite serializes writes (single connection); no advisory lock
+	}
 	if _, err := tx.Exec(`SELECT pg_advisory_xact_lock($1)`, schemaMigrationLockKey); err != nil {
 		return fmt.Errorf("coordinate with schema migration: %w", err)
 	}
@@ -90,6 +93,9 @@ func coordinateWithSchemaMigration(tx *sql.Tx) error {
 // Precedence: env ARTEX_PG_DSN > config file (config.json). There is no
 // built-in default — it errors if neither source is configured.
 func DSN() (dsn, source string, err error) {
+	if sqliteMode {
+		return sqliteFilePath, "ios-sqlite", nil
+	}
 	return config.PostgresDSN()
 }
 
@@ -131,6 +137,9 @@ func ensureDatabase(dsn string) error {
 
 // Open connects, applies the schema (idempotent), and seeds builtin rows.
 func Open(dsn string) (*DB, error) {
+	if sqliteMode {
+		return OpenSQLite(dsn)
+	}
 	if err := ensureDatabase(dsn); err != nil {
 		return nil, err
 	}
