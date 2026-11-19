@@ -195,6 +195,16 @@ func parseURL(raw string) (domain string, port int, serviceName string) {
 }
 
 func marshalJSONBArray(items []map[string]any) (string, error) {
+	if sqliteMode { // JSON array of objects (columns are JSON on SQLite)
+		if len(items) == 0 {
+			return "[]", nil
+		}
+		b, err := json.Marshal(items)
+		if err != nil {
+			return "", err
+		}
+		return string(b), nil
+	}
 	if len(items) == 0 {
 		return "{}", nil
 	}
@@ -214,6 +224,13 @@ func marshalJSONBArray(items []map[string]any) (string, error) {
 }
 
 func marshalStringArray(items []string) string {
+	if sqliteMode { // JSON array text (columns are JSON on SQLite)
+		if len(items) == 0 {
+			return "[]"
+		}
+		b, _ := json.Marshal(items)
+		return string(b)
+	}
 	if len(items) == 0 {
 		return "{}"
 	}
@@ -222,6 +239,21 @@ func marshalStringArray(items []string) string {
 		escaped[i] = `"` + strings.ReplaceAll(s, `"`, `\"`) + `"`
 	}
 	return "{" + strings.Join(escaped, ",") + "}"
+}
+
+// marshalInt64ArrayText formats a single id (0 = none) as the array column text:
+// JSON on SQLite, Postgres array literal otherwise.
+func marshalInt64ArrayText(id int64) string {
+	if id <= 0 {
+		if sqliteMode {
+			return "[]"
+		}
+		return "{}"
+	}
+	if sqliteMode {
+		return fmt.Sprintf("[%d]", id)
+	}
+	return fmt.Sprintf("{%d}", id)
 }
 
 func marshalPortServices(ps []PortService) (string, error) {
@@ -267,12 +299,7 @@ func (s *AssetStore) UpsertRootDomain(req UpsertRootDomainReq) (int64, error) {
 		return 0, err
 	}
 
-	var taskIDs string
-	if req.TaskID > 0 {
-		taskIDs = fmt.Sprintf("{%d}", req.TaskID)
-	} else {
-		taskIDs = "{}"
-	}
+	taskIDs := marshalInt64ArrayText(req.TaskID)
 
 	var icpVal any
 	if req.ICP != "" {
@@ -353,12 +380,7 @@ func (s *AssetStore) UpsertIP(req UpsertIPReq) (int64, error) {
 		return 0, err
 	}
 
-	var taskIDs string
-	if req.TaskID > 0 {
-		taskIDs = fmt.Sprintf("{%d}", req.TaskID)
-	} else {
-		taskIDs = "{}"
-	}
+	taskIDs := marshalInt64ArrayText(req.TaskID)
 
 	boundDomains := marshalStringArray(req.BoundDomains)
 	openPortsJSON, err := marshalPortServices(req.OpenPorts)
@@ -517,12 +539,7 @@ func (s *AssetStore) UpsertSubdomain(req UpsertSubdomainReq) (id int64, err erro
 		companyID, _ = s.resolveCompanyWithICP("", ipStr, "")
 	}
 
-	var taskIDs string
-	if req.TaskID > 0 {
-		taskIDs = fmt.Sprintf("{%d}", req.TaskID)
-	} else {
-		taskIDs = "{}"
-	}
+	taskIDs := marshalInt64ArrayText(req.TaskID)
 
 	var icpVal, csegVal, ipVal any
 	if req.ICP != "" {
@@ -587,12 +604,7 @@ func (s *AssetStore) UpsertApp(req UpsertAppReq) (int64, error) {
 		})
 	}
 
-	var taskIDs string
-	if req.TaskID > 0 {
-		taskIDs = fmt.Sprintf("{%d}", req.TaskID)
-	} else {
-		taskIDs = "{}"
-	}
+	taskIDs := marshalInt64ArrayText(req.TaskID)
 
 	var bundleVal, catVal, descVal, icpVal, companyIDVal any
 	companySource := "scope"
@@ -717,12 +729,7 @@ func (s *AssetStore) UpsertHTTPService(req UpsertHTTPServiceReq) (int64, error) 
 		return 0, err
 	}
 
-	var taskIDs string
-	if req.TaskID > 0 {
-		taskIDs = fmt.Sprintf("{%d}", req.TaskID)
-	} else {
-		taskIDs = "{}"
-	}
+	taskIDs := marshalInt64ArrayText(req.TaskID)
 
 	techsArr := marshalStringArray(req.Technologies)
 	authJSON, err := marshalJSONBArray(req.Auth)
@@ -866,12 +873,7 @@ func (s *AssetStore) UpsertOtherService(req UpsertOtherServiceReq) (int64, error
 		return 0, err
 	}
 
-	var taskIDs string
-	if req.TaskID > 0 {
-		taskIDs = fmt.Sprintf("{%d}", req.TaskID)
-	} else {
-		taskIDs = "{}"
-	}
+	taskIDs := marshalInt64ArrayText(req.TaskID)
 
 	authJSON, err := marshalJSONBArray(req.Auth)
 	if err != nil {
@@ -1001,12 +1003,7 @@ func (s *AssetStore) UpsertEndpoint(req UpsertEndpointReq) (int64, error) {
 		return 0, err
 	}
 
-	var taskIDs string
-	if req.TaskID > 0 {
-		taskIDs = fmt.Sprintf("{%d}", req.TaskID)
-	} else {
-		taskIDs = "{}"
-	}
+	taskIDs := marshalInt64ArrayText(req.TaskID)
 
 	paramsJSON, err := marshalJSONBArray(req.Params)
 	if err != nil {

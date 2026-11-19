@@ -139,6 +139,9 @@ var (
 	// → the registered inet_contains(net, addr) scalar. Runs after :: casts are
 	// stripped, so `$1::inet` is already `$1`.
 	reInetContains = regexp.MustCompile(`([\w.]+)\s*>>=\s*(try_inet\([^)]*\)|\$\d+|[\w.]+)`)
+	// `X.extra || EXCLUDED.extra` (jsonb object merge in the asset upserts) →
+	// json_patch (SQLite `||` is string concat, which would corrupt the JSON).
+	reExtraMerge = regexp.MustCompile(`([\w.]+\.extra)\s*\|\|\s*(EXCLUDED\.extra)`)
 )
 
 func rewriteSQL(q string) string {
@@ -167,5 +170,6 @@ func rewriteSQL(q string) string {
 	q = reDistinctOnMerge.ReplaceAllString(q,
 		`(SELECT json_group_array(json(value)) FROM (SELECT value FROM json_each(COALESCE(${1},'[]')) UNION SELECT value FROM json_each(COALESCE(${2},'[]'))))`)
 	q = reInetContains.ReplaceAllString(q, `inet_contains(${1}, ${2})`)
+	q = reExtraMerge.ReplaceAllString(q, `json_patch(${1}, ${2})`)
 	return q
 }
