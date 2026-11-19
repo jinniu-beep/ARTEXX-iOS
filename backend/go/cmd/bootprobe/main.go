@@ -148,7 +148,9 @@ func main() {
 		`{"type":"root_domain","domain":"probe.example"},`+
 		`{"type":"subdomain","domain":"www.probe.example","record_type":"A","record_value":["203.0.113.9"]},`+
 		`{"type":"ip","ip":"203.0.113.9","bound_domains":["probe.example"]},`+
-		`{"type":"service","url":"http://probe.example","technologies":["nginx"],"port":80}`+
+		`{"type":"service","url":"http://probe.example","technologies":["nginx"],"port":80},`+
+		`{"type":"app","app_name":"ProbeApp","bundle_id":"com.probe.app","category":"tool"},`+
+		`{"type":"endpoint","url":"http://probe.example/api","method":"GET"}`+
 		`]}`)
 	// read back: did the writes persist (and does the list query still work)?
 	get(ts, "/api/assets", token)
