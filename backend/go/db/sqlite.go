@@ -57,7 +57,7 @@ func sqliteDSN(dbPath string) string {
 // OpenSQLite opens (or creates) the SQLite database, applies the converted
 // schema, and seeds the built-in agents — the iOS equivalent of Open(dsn).
 func OpenSQLite(dbPath string) (*DB, error) {
-	sqlDB, err := sql.Open("sqlite", sqliteDSN(dbPath))
+	sqlDB, err := sql.Open("sqlite-pgshim", sqliteDSN(dbPath))
 	if err != nil {
 		return nil, err
 	}
