@@ -371,20 +371,32 @@ func (s *AssetStore) UpsertIP(req UpsertIPReq) (int64, error) {
 		csegVal = cseg
 	}
 
-	var id int64
-	err = s.tx.QueryRow(`
-INSERT INTO assets(type, ip, c_segment, bound_domains, open_ports, company_id, company_source, task_ids)
-VALUES ('ip', $1, $2::cidr, $3::text[], $4::jsonb[], $5, 'scope', $6::bigint[])
-ON CONFLICT (ip) WHERE type = 'ip' DO UPDATE SET
-    bound_domains = (SELECT ARRAY(SELECT DISTINCT unnest(assets.bound_domains || EXCLUDED.bound_domains))),
-    open_ports    = (
+	// open_ports merge: dedup by port, preferring the entry carrying a service name.
+	openPortsMerge := `(
         SELECT ARRAY(
             SELECT DISTINCT ON ((elem->>'port')::int) elem
             FROM unnest(assets.open_ports || EXCLUDED.open_ports) AS elem
             ORDER BY (elem->>'port')::int,
                      CASE WHEN elem->>'service' IS NOT NULL AND elem->>'service' <> '' THEN 0 ELSE 1 END
         )
-    ),
+    )`
+	if sqliteMode {
+		// SQLite: GROUP BY port; the bare-column + MAX() rule makes `value` come from
+		// the service-present row per group, matching the Postgres DISTINCT ON intent.
+		openPortsMerge = `(SELECT json_group_array(json(value)) FROM (` +
+			`SELECT value, MAX(CASE WHEN COALESCE(json_extract(value,'$.service'),'')<>'' THEN 1 ELSE 0 END) ` +
+			`FROM (SELECT value FROM json_each(COALESCE(assets.open_ports,'[]')) ` +
+			`UNION ALL SELECT value FROM json_each(COALESCE(EXCLUDED.open_ports,'[]'))) ` +
+			`GROUP BY json_extract(value,'$.port')))`
+	}
+
+	var id int64
+	err = s.tx.QueryRow(`
+INSERT INTO assets(type, ip, c_segment, bound_domains, open_ports, company_id, company_source, task_ids)
+VALUES ('ip', $1, $2::cidr, $3::text[], $4::jsonb[], $5, 'scope', $6::bigint[])
+ON CONFLICT (ip) WHERE type = 'ip' DO UPDATE SET
+    bound_domains = (SELECT ARRAY(SELECT DISTINCT unnest(assets.bound_domains || EXCLUDED.bound_domains))),
+    open_ports    = ` + openPortsMerge + `,
     c_segment  = COALESCE(assets.c_segment, EXCLUDED.c_segment),
     company_id = CASE
         WHEN assets.company_source = 'explicit' AND assets.company_id IS NOT NULL THEN assets.company_id

@@ -158,7 +158,9 @@ func rewriteSQL(q string) string {
 	q = reStrAgg.ReplaceAllString(q, "GROUP_CONCAT(")
 	q = reArrayMerge.ReplaceAllString(q,
 		`(SELECT json_group_array(value) FROM (SELECT value FROM json_each(COALESCE(${1},'[]')) UNION SELECT value FROM json_each(COALESCE(${2},'[]'))))`)
+	// json(value): these are arrays of OBJECTS (auth/params), so re-embed each
+	// element as JSON — a bare value would be stored double-encoded as a string.
 	q = reDistinctOnMerge.ReplaceAllString(q,
-		`(SELECT json_group_array(value) FROM (SELECT value FROM json_each(COALESCE(${1},'[]')) UNION SELECT value FROM json_each(COALESCE(${2},'[]'))))`)
+		`(SELECT json_group_array(json(value)) FROM (SELECT value FROM json_each(COALESCE(${1},'[]')) UNION SELECT value FROM json_each(COALESCE(${2},'[]'))))`)
 	return q
 }
