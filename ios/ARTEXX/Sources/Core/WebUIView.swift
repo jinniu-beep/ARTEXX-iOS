@@ -11,13 +11,18 @@ struct WebUIView: UIViewRepresentable {
         cfg.allowsInlineMediaPlayback = true
         cfg.mediaTypesRequiringUserActionForPlayback = []
 
-        // 把前端请求代理到内置服务
-        let proxy = LocalAPIProxy()
-        cfg.setURLSchemeHandler(proxy, forURLScheme: "artex")
-        context.coordinator.proxy = proxy
-
-        // 允许 localhost 与任意来源
-        cfg.preferences.setValue(true, forKey: "allowFileAccessFromFileURLs")
+        // 关键：前端登录守卫读 localStorage.artex_token，
+        // 页面脚本执行前就注入，用户不用在手机上再登录一次。
+        let token = EmbeddedServer.shared.token
+        let inject = """
+        try {
+          localStorage.setItem('artex_token', '\(token)');
+          document.cookie = 'artex_token=\(token); path=/; max-age=31536000';
+        } catch (e) {}
+        """
+        cfg.userContentController.addUserScript(
+            WKUserScript(source: inject, injectionTime: .atDocumentStart, forMainFrameOnly: false)
+        )
 
         let wv = WKWebView(frame: .zero, configuration: cfg)
         wv.navigationDelegate = context.coordinator
@@ -42,13 +47,10 @@ struct WebUIView: UIViewRepresentable {
 
     final class Coordinator: NSObject, WKNavigationDelegate, WKUIDelegate {
         weak var webView: WKWebView?
-        var proxy: LocalAPIProxy?
         private var retries = 0
 
         /// 服务端还没 ready 时自动重试加载
-        func startWatchdog() {
-            scheduleRetry()
-        }
+        func startWatchdog() { scheduleRetry() }
 
         private func scheduleRetry() {
             DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { [weak self] in
@@ -74,6 +76,12 @@ struct WebUIView: UIViewRepresentable {
         }
         func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
             NSLog("[ARTEXX] Web UI provisional fail: \(error.localizedDescription)")
+            // 服务端可能还在启动，稍后重试一次
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { [weak webView] in
+                guard let wv = webView else { return }
+                let port = EmbeddedServer.shared.port
+                if let u = URL(string: "http://127.0.0.1:\(port)/") { wv.load(URLRequest(url: u)) }
+            }
         }
         // 处理 target=_blank
         func webView(_ webView: WKWebView, createWebViewWith configuration: WKWebViewConfiguration,
@@ -82,28 +90,4 @@ struct WebUIView: UIViewRepresentable {
             return nil
         }
     }
-}
-
-/// 自定义 scheme 处理器（保留给未来用 file:// 之外的资源加载）
-final class LocalAPIProxy: NSObject, WKURLSchemeHandler {
-    func webView(_ webView: WKWebView, start urlSchemeTask: WKURLSchemeTask) {
-        guard let url = urlSchemeTask.request.url else { return }
-        var comps = URLComponents(url: url, resolvingAgainstBaseURL: false)
-        comps?.scheme = "http"
-        comps?.host = "127.0.0.1"
-        comps?.port = 8787
-        guard let target = comps?.url else { return }
-        URLSession.shared.dataTask(with: target) { data, resp, err in
-            if let err {
-                urlSchemeTask.didFailWithError(err)
-                return
-            }
-            if let http = resp as? HTTPURLResponse {
-                urlSchemeTask.didReceive(http)
-            }
-            if let data { urlSchemeTask.didReceive(data) }
-            urlSchemeTask.didFinish()
-        }.resume()
-    }
-    func webView(_ webView: WKWebView, stop urlSchemeTask: WKURLSchemeTask) {}
 }

@@ -17,13 +17,17 @@ final class EmbeddedServer {
     private let tokenKey = "artex.server.token"
 
     // MARK: - 生命周期
+    /// 只绑 127.0.0.1：Web UI 与内置客户端都在本机，
+    /// 绑回环既不需要「本地网络」权限弹窗，也不会把服务暴露到局域网。
     func start(port: UInt16 = 8787) {
         guard !running else { return }
         self.port = port
         do {
             let params = NWParameters.tcp
             params.allowLocalEndpointReuse = true
-            let l = try NWListener(using: params, on: NWEndpoint.Port(rawValue: port)!)
+            guard let nwPort = NWEndpoint.Port(rawValue: port) else { return }
+            params.requiredLocalEndpoint = NWEndpoint.hostPort(host: .ipv4(.loopback), port: nwPort)
+            let l = try NWListener(using: params)
             l.newConnectionHandler = { [weak self] conn in
                 self?.handle(conn)
             }
@@ -46,6 +50,14 @@ final class EmbeddedServer {
             lastError = error.localizedDescription
             NSLog("[ARTEXX] 无法监听 \(port): \(error.localizedDescription)")
         }
+    }
+
+    /// 给 Web UI 注入用的 token（首次访问时生成，保证前端能直接进入主界面）
+    var token: String {
+        if let t = UserDefaults.standard.string(forKey: tokenKey), !t.isEmpty { return t }
+        let t = UUID().uuidString.replacingOccurrences(of: "-", with: "")
+        UserDefaults.standard.set(t, forKey: tokenKey)
+        return t
     }
 
     func stop() {
@@ -96,7 +108,8 @@ final class EmbeddedServer {
                 // 异步处理并回包
                 DispatchQueue.main.async {
                     let (status, payload, contentType) = Router.handle(method: method, path: fullPath, body: body)
-                    self.respond(conn, status: status, body: payload, contentType: contentType)
+                    self.respond(conn, status: status, body: payload, contentType: contentType,
+                                 headOnly: method == "HEAD")
                 }
             } else if isComplete || error != nil {
                 conn.cancel()
@@ -106,7 +119,7 @@ final class EmbeddedServer {
         }
     }
 
-    private func respond(_ conn: NWConnection, status: Int, body: Data, contentType: String) {
+    private func respond(_ conn: NWConnection, status: Int, body: Data, contentType: String, headOnly: Bool = false) {
         let reason: String
         switch status {
         case 200: reason = "OK"
@@ -122,20 +135,22 @@ final class EmbeddedServer {
         head += "Content-Length: \(body.count)\r\n"
         head += "Access-Control-Allow-Origin: *\r\n"
         head += "Access-Control-Allow-Headers: *\r\n"
+        head += "Access-Control-Allow-Methods: GET,POST,PUT,PATCH,DELETE,HEAD,OPTIONS\r\n"
+        head += "Cache-Control: no-store\r\n"
         head += "Connection: close\r\n\r\n"
         var out = Data(head.utf8)
-        out.append(body)
+        if !headOnly { out.append(body) }
         conn.send(content: out, completion: .contentProcessed { _ in conn.cancel() })
     }
 
     // MARK: - 鉴权
     var hasPassword: Bool { UserDefaults.standard.string(forKey: passwordKey) != nil }
 
+    /// 密码只决定「能不能改配置」，token 一旦生成就固定，
+    /// 否则每次登录都会让 Web UI 里注入的 token 失效。
     @discardableResult
     func setPassword(_ p: String) -> String {
         UserDefaults.standard.set(p, forKey: passwordKey)
-        let token = UUID().uuidString.replacingOccurrences(of: "-", with: "")
-        UserDefaults.standard.set(token, forKey: tokenKey)
         return token
     }
 
