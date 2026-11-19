@@ -184,6 +184,16 @@ func main() {
 	// read back: did the writes persist (and does the list query still work)?
 	get(ts, "/api/assets", token)
 
+	fmt.Println("## writes that RETURN a time.Time created_at (the pg→sqlite *time.Time scan bug)")
+	// task_categories.created_at is scanned into a Go time.Time — on SQLite the
+	// column is TEXT, so without the shim's read-side coercion this 500s with
+	// "unsupported Scan ... string into *time.Time".
+	post(ts, "/api/task-categories", token, `{"name":"probe-cat"}`)
+	get(ts, "/api/task-categories", token)
+	// companies.created_at is `::text` into a Go string — exercises the
+	// time.Time→string fallback on read now that the shim coerces *_at columns.
+	get(ts, "/api/companies", token)
+
 	fmt.Println("## skills library (expect the 319 converted SKILL.md to load)")
 	checkSkillCount(ts, token)
 

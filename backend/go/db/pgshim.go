@@ -18,6 +18,7 @@ import (
 	"encoding/json"
 	"reflect"
 	"regexp"
+	"strings"
 	"time"
 )
 
@@ -54,14 +55,26 @@ func (d pgShimDriver) Open(name string) (driver.Conn, error) {
 type shimConn struct{ driver.Conn }
 
 func (c *shimConn) Prepare(query string) (driver.Stmt, error) {
-	return c.Conn.Prepare(rewriteSQL(query))
+	st, err := c.Conn.Prepare(rewriteSQL(query))
+	if err != nil {
+		return nil, err
+	}
+	return &shimStmt{Stmt: st}, nil
 }
 
 func (c *shimConn) PrepareContext(ctx context.Context, query string) (driver.Stmt, error) {
 	if pc, ok := c.Conn.(driver.ConnPrepareContext); ok {
-		return pc.PrepareContext(ctx, rewriteSQL(query))
+		st, err := pc.PrepareContext(ctx, rewriteSQL(query))
+		if err != nil {
+			return nil, err
+		}
+		return &shimStmt{Stmt: st}, nil
 	}
-	return c.Conn.Prepare(rewriteSQL(query))
+	st, err := c.Conn.Prepare(rewriteSQL(query))
+	if err != nil {
+		return nil, err
+	}
+	return &shimStmt{Stmt: st}, nil
 }
 
 func (c *shimConn) ExecContext(ctx context.Context, query string, args []driver.NamedValue) (driver.Result, error) {
@@ -73,7 +86,11 @@ func (c *shimConn) ExecContext(ctx context.Context, query string, args []driver.
 
 func (c *shimConn) QueryContext(ctx context.Context, query string, args []driver.NamedValue) (driver.Rows, error) {
 	if qc, ok := c.Conn.(driver.QueryerContext); ok {
-		return qc.QueryContext(ctx, rewriteSQL(query), args)
+		rows, err := qc.QueryContext(ctx, rewriteSQL(query), args)
+		if err != nil {
+			return nil, err
+		}
+		return wrapRows(rows), nil
 	}
 	return nil, driver.ErrSkip
 }
@@ -172,4 +189,147 @@ func rewriteSQL(q string) string {
 	q = reInetContains.ReplaceAllString(q, `inet_contains(${1}, ${2})`)
 	q = reExtraMerge.ReplaceAllString(q, `json_patch(${1}, ${2})`)
 	return q
+}
+
+// --- result-side rewrites: time columns ---------------------------------
+//
+// SQLite stores timestamps as TEXT, so modernc returns a string for created_at /
+// updated_at / *_at columns. The shared Go code was written for pgx, which hands
+// back time.Time for timestamptz columns and scans those into *time.Time /
+// sql.NullTime; database/sql cannot assign a string to *time.Time ("unsupported
+// Scan ... storing driver.Value type string into type *time.Time"). So on the
+// read path we convert the text of *_at columns back into time.Time — matching
+// pgx — which every existing scan target already accepts. Wraps both the direct
+// QueryContext path and the prepared-statement path.
+
+type shimStmt struct{ driver.Stmt }
+
+func (s *shimStmt) ExecContext(ctx context.Context, args []driver.NamedValue) (driver.Result, error) {
+	if e, ok := s.Stmt.(driver.StmtExecContext); ok {
+		return e.ExecContext(ctx, args)
+	}
+	return s.Stmt.Exec(namedToValues(args)) //nolint:staticcheck
+}
+
+func (s *shimStmt) QueryContext(ctx context.Context, args []driver.NamedValue) (driver.Rows, error) {
+	if q, ok := s.Stmt.(driver.StmtQueryContext); ok {
+		rows, err := q.QueryContext(ctx, args)
+		if err != nil {
+			return nil, err
+		}
+		return wrapRows(rows), nil
+	}
+	rows, err := s.Stmt.Query(namedToValues(args)) //nolint:staticcheck
+	if err != nil {
+		return nil, err
+	}
+	return wrapRows(rows), nil
+}
+
+func (s *shimStmt) Query(args []driver.Value) (driver.Rows, error) { //nolint:staticcheck
+	rows, err := s.Stmt.Query(args) //nolint:staticcheck
+	if err != nil {
+		return nil, err
+	}
+	return wrapRows(rows), nil
+}
+
+func namedToValues(named []driver.NamedValue) []driver.Value {
+	vals := make([]driver.Value, len(named))
+	for i, nv := range named {
+		vals[i] = nv.Value
+	}
+	return vals
+}
+
+type shimRows struct {
+	driver.Rows
+	timeCol []bool
+}
+
+// wrapRows marks the *_at columns; a result set with none keeps the base Rows
+// untouched (no per-row cost, and its optional column-type interfaces survive).
+func wrapRows(r driver.Rows) driver.Rows {
+	cols := r.Columns()
+	tc := make([]bool, len(cols))
+	anyTime := false
+	for i, c := range cols {
+		if isTimeColName(c) {
+			tc[i] = true
+			anyTime = true
+		}
+	}
+	if !anyTime {
+		return r
+	}
+	return &shimRows{Rows: r, timeCol: tc}
+}
+
+func (r *shimRows) Next(dest []driver.Value) error {
+	if err := r.Rows.Next(dest); err != nil {
+		return err
+	}
+	for i := range dest {
+		if i >= len(r.timeCol) || !r.timeCol[i] {
+			continue
+		}
+		switch v := dest[i].(type) {
+		case string:
+			if t, ok := parseSQLiteTime(v); ok {
+				dest[i] = t
+			}
+		case []byte:
+			if t, ok := parseSQLiteTime(string(v)); ok {
+				dest[i] = t
+			}
+		}
+	}
+	return nil
+}
+
+// isTimeColName decides which result columns to coerce back to time.Time. The
+// `_at` suffix catches created_at/updated_at/started_at/sent_at/… across every
+// table. A few timestamptz columns don't end in `_at` and ARE scanned into
+// time.Time, so they're listed explicitly.
+//
+// Deliberately NOT listed: last_seen — assets always select it as `last_seen::text`
+// into a Go `string` field, so leaving it a string keeps its exact value. Columns
+// like companies.created_at (also `::text` into a string field) still match `_at`
+// and become time.Time, which database/sql assigns to the *string target as an
+// RFC3339 string — a harmless format change, never a scan error.
+var extraTimeCols = map[string]bool{
+	"open_until": true, // llm_profile_health.OpenUntil *time.Time
+	"ts":         true, // llm_usage / command-run timestamp
+	"last_fire":  true, // scheduled-trigger last fire
+}
+
+func isTimeColName(name string) bool {
+	n := strings.ToLower(name)
+	return strings.HasSuffix(n, "_at") || extraTimeCols[n]
+}
+
+// Layouts cover datetime('now') ("2006-01-02 15:04:05", UTC, no zone) and the
+// forms modernc emits when a time.Time is bound to a TEXT column (with zone, with
+// fractional seconds, or ISO "T"). First match wins; a non-time *_at value that
+// parses as none is left as-is.
+var sqliteTimeLayouts = []string{
+	"2006-01-02 15:04:05.999999999-07:00",
+	"2006-01-02 15:04:05-07:00",
+	"2006-01-02T15:04:05.999999999Z07:00",
+	"2006-01-02T15:04:05Z07:00",
+	"2006-01-02 15:04:05.999999999",
+	"2006-01-02 15:04:05",
+	"2006-01-02",
+}
+
+func parseSQLiteTime(s string) (time.Time, bool) {
+	if s == "" {
+		return time.Time{}, false
+	}
+	for _, layout := range sqliteTimeLayouts {
+		if t, err := time.Parse(layout, s); err == nil {
+			return t, true
+		}
+	}
+	return time.Time{}, false
 }
