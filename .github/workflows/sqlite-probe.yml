@@ -1,0 +1,31 @@
+name: A3 SQLite dialect probe
+
+# Host-run diagnostic (modernc.org/sqlite is pure Go — ubuntu is fine, no Xcode):
+# does the converted schema load, and do $N placeholders bind like pgx? This
+# gates whether the 751 existing $N query sites can stay as-is.
+
+on:
+  push:
+    paths:
+      - 'backend/go/cmd/sqliteprobe/**'
+      - 'backend/schema.sqlite.sql'
+      - '.github/workflows/sqlite-probe.yml'
+  workflow_dispatch: {}
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.26.x'
+          cache: false
+
+      - name: Run SQLite dialect probe
+        working-directory: backend/go
+        run: go run ./cmd/sqliteprobe ../../backend/schema.sqlite.sql
