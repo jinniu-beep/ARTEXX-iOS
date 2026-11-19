@@ -31,6 +31,10 @@ enum APICompat {
 
         if method == "OPTIONS" { return (204, Data(), "text/plain; charset=utf-8") }
 
+        // SSE 端点：本机没有事件流，返回 204 让 EventSource 按规范停止重连，
+        // 而不是每 3 秒重连一次把 CPU 耗掉。
+        if path.hasSuffix("/stream") { return (204, Data(), "text/plain; charset=utf-8") }
+
         let s0 = seg.count > 0 ? seg[0] : ""
         let s1 = seg.count > 1 ? seg[1] : ""
         let s2 = seg.count > 2 ? seg[2] : ""
