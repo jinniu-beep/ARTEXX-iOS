@@ -641,7 +641,7 @@ export default function SkillsPage() {
               }
               <span className="min-w-0 flex-1 truncate" title={node.path}>{node.name}</span>
               {/* Absolute so a long name can never push the actions out of view */}
-              <span className="absolute inset-y-0 right-1 hidden items-center gap-0.5 rounded bg-muted pl-1 group-hover:flex">
+              <span className="absolute inset-y-0 right-1 flex items-center gap-0.5 rounded bg-muted pl-1 [@media(hover:hover)]:hidden [@media(hover:hover)]:group-hover:flex">
                 <Button size="icon" variant="ghost" className="size-5" title="新建文件"
                   onClick={(e) => { e.stopPropagation(); startCreate(skill, node.path, "file"); }}>
                   <FilePlusIcon className="size-3 text-muted-foreground" />
@@ -682,7 +682,7 @@ export default function SkillsPage() {
           <FileTextIcon className="size-3.5 shrink-0 text-muted-foreground" />
           <span className="min-w-0 flex-1 truncate font-mono text-xs" title={node.path}>{node.name}</span>
           <span className={cn(
-            "absolute inset-y-0 right-1 hidden items-center rounded pl-1 group-hover:flex",
+            "absolute inset-y-0 right-1 flex items-center rounded pl-1 [@media(hover:hover)]:hidden [@media(hover:hover)]:group-hover:flex",
             isSelected ? "bg-accent" : "bg-muted",
           )}>
             <Button size="icon" variant="ghost" className="size-5"
@@ -796,7 +796,7 @@ export default function SkillsPage() {
                         </span>
                       )}
                       <span className={cn(
-                        "absolute inset-y-0 right-1 hidden items-center gap-0.5 rounded pl-1 group-hover:flex",
+                        "absolute inset-y-0 right-1 flex items-center gap-0.5 rounded pl-1 [@media(hover:hover)]:hidden [@media(hover:hover)]:group-hover:flex",
                         isSkillSelected ? "bg-accent" : "bg-muted",
                       )}>
                         <Button size="icon" variant="ghost" className="size-5" title="新建文件"

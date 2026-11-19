@@ -23,7 +23,9 @@ function TableHeader({ className, ...props }: React.ComponentProps<"thead">) {
   return (
     <thead
       data-slot="table-header"
-      className={cn("[&_tr]:border-b", className)}
+      // 长表在纵向滚动容器里时表头吸顶，手机/iPad 上翻几屏也能对上列。
+      // 桌面若表格不在滚动祖先内，sticky 不触发，外观不变。
+      className={cn("sticky top-0 z-10 bg-background [&_tr]:border-b", className)}
       {...props}
     />
   )

@@ -199,7 +199,7 @@ export default function CommandsPage() {
       </div>
 
       {/* History table */}
-      <div className="flex h-[calc(100vh-13rem)] min-h-0 flex-col">
+      <div className="flex h-[calc(100dvh-13rem)] min-h-0 flex-col">
         <Card className="flex min-h-0 flex-1 flex-col overflow-hidden py-0">
           <div className="min-h-0 flex-1 overflow-auto">
             <Table>
