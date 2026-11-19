@@ -65,15 +65,15 @@ func (d *DB) CreateTaskCategory(name string) (*TaskCategory, error) {
 	if err != nil {
 		return nil, err
 	}
+	// Was a data-modifying CTE (WITH inserted AS (INSERT ...)); SQLite's WITH only
+	// wraps SELECT, so use a plain INSERT ... RETURNING — valid on both PG and
+	// SQLite and semantically identical (ON CONFLICT DO NOTHING → no row returned →
+	// sql.ErrNoRows → name conflict). TaskCount is 0 for a brand-new category.
 	category, err := scanTaskCategory(d.QueryRow(`
-WITH inserted AS (
-    INSERT INTO task_categories(name, nkey)
-    VALUES ($1,$2)
-    ON CONFLICT (nkey) DO NOTHING
-    RETURNING *
-)
-SELECT inserted.id, inserted.name, inserted.nkey, 0, inserted.created_at, inserted.updated_at
-FROM inserted`, name, nkey))
+INSERT INTO task_categories(name, nkey)
+VALUES ($1,$2)
+ON CONFLICT (nkey) DO NOTHING
+RETURNING id, name, nkey, 0, created_at, updated_at`, name, nkey))
 	if err == sql.ErrNoRows {
 		return nil, ErrTaskCategoryNameConflict
 	}
@@ -125,6 +125,30 @@ func (d *DB) RenameTaskCategory(id int64, name string) (*TaskCategory, error) {
 	name, nkey, err := normalizeTaskCategoryName(name)
 	if err != nil {
 		return nil, err
+	}
+	// data-modifying CTE on PG. SQLite's WITH can't wrap UPDATE, and its RETURNING
+	// can't contain a subquery, so on SQLite do the UPDATE ... RETURNING then count
+	// the tasks in a second query. PG keeps the original single-statement CTE.
+	if sqliteMode {
+		var category TaskCategory
+		err := d.QueryRow(`
+UPDATE task_categories SET name=$2, nkey=$3 WHERE id=$1
+RETURNING id, name, nkey, created_at, updated_at`, id, name, nkey).
+			Scan(&category.ID, &category.Name, &category.NKey, &category.CreatedAt, &category.UpdatedAt)
+		if err == sql.ErrNoRows {
+			return nil, ErrTaskCategoryNotFound
+		}
+		if taskCategoryUniqueViolation(err) {
+			return nil, ErrTaskCategoryNameConflict
+		}
+		if err != nil {
+			return nil, err
+		}
+		if err := d.QueryRow(`SELECT count(*) FROM tasks WHERE category_id=$1 AND deleted_at IS NULL`, category.ID).
+			Scan(&category.TaskCount); err != nil {
+			return nil, err
+		}
+		return &category, nil
 	}
 	category, err := scanTaskCategory(d.QueryRow(`
 WITH updated AS (
