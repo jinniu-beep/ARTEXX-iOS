@@ -46,8 +46,13 @@ ON CONFLICT (key) DO NOTHING`, key, desc, schema, agents)
 // not already present (idempotent). Used to give the built-in Auto agent its
 // default toolset on existing DBs.
 func (d *DB) AddAgentToToolBinding(agentKey string, keys []string) error {
+	q := `UPDATE tools SET agents = agents || to_jsonb($1::text) WHERE key=$2 AND NOT (agents ? $1)`
+	if sqliteMode {
+		q = `UPDATE tools SET agents = json_insert(COALESCE(agents,'[]'), '$[#]', $1) ` +
+			`WHERE key=$2 AND NOT EXISTS(SELECT 1 FROM json_each(COALESCE(agents,'[]')) WHERE value=$1)`
+	}
 	for _, k := range keys {
-		if _, err := d.Exec(`UPDATE tools SET agents = agents || to_jsonb($1::text) WHERE key=$2 AND NOT (agents ? $1)`, agentKey, k); err != nil {
+		if _, err := d.Exec(q, agentKey, k); err != nil {
 			return err
 		}
 	}
@@ -58,7 +63,12 @@ func (d *DB) AddAgentToToolBinding(agentKey string, keys []string) error {
 // JSONB array — called when a custom agent is deleted so no tool keeps a dangling
 // binding. Uses jsonb `-` (remove array element) guarded by `?` (membership).
 func (d *DB) RemoveAgentFromToolBindings(agentKey string) error {
-	_, err := d.Exec(`UPDATE tools SET agents = agents - $1 WHERE agents ? $1`, agentKey)
+	q := `UPDATE tools SET agents = agents - $1 WHERE agents ? $1`
+	if sqliteMode {
+		q = `UPDATE tools SET agents = COALESCE((SELECT json_group_array(value) FROM json_each(COALESCE(tools.agents,'[]')) WHERE value<>$1), '[]') ` +
+			`WHERE EXISTS(SELECT 1 FROM json_each(COALESCE(tools.agents,'[]')) WHERE value=$1)`
+	}
+	_, err := d.Exec(q, agentKey)
 	return err
 }
 
@@ -66,7 +76,12 @@ func (d *DB) RemoveAgentFromToolBindings(agentKey string) error {
 // used by one-time migrations that change a tool's default binding on existing DBs
 // (SeedTool is first-insert-only, so a changed default never reaches a seeded row).
 func (d *DB) RemoveAgentFromTool(agentKey, toolKey string) error {
-	_, err := d.Exec(`UPDATE tools SET agents = agents - $1 WHERE key=$2 AND agents ? $1`, agentKey, toolKey)
+	q := `UPDATE tools SET agents = agents - $1 WHERE key=$2 AND agents ? $1`
+	if sqliteMode {
+		q = `UPDATE tools SET agents = COALESCE((SELECT json_group_array(value) FROM json_each(COALESCE(tools.agents,'[]')) WHERE value<>$1), '[]') ` +
+			`WHERE key=$2 AND EXISTS(SELECT 1 FROM json_each(COALESCE(tools.agents,'[]')) WHERE value=$1)`
+	}
+	_, err := d.Exec(q, agentKey, toolKey)
 	return err
 }
 

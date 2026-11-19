@@ -89,6 +89,12 @@ var (
 	// PG column types used in runtime DDL (CREATE TABLE in Go). Uppercase-only so
 	// lowercase column names like `timestamp` are never touched.
 	rePGTypes = regexp.MustCompile(`\b(?:BIGSERIAL|SERIAL|TIMESTAMPTZ|TIMESTAMP|BIGINT|BOOLEAN|BYTEA)\b`)
+	// `FOR UPDATE [OF ident]` → nothing. SQLite is a single writer, so row locks are
+	// implicit; the clause is pure PG and invalid in SQLite.
+	reForUpdate = regexp.MustCompile(`(?i)\s+FOR\s+UPDATE(?:\s+OF\s+[a-zA-Z_][a-zA-Z0-9_]*)?`)
+	// SQLite forbids custom functions in a DEFAULT clause, so `DEFAULT now()` in
+	// runtime DDL becomes the built-in CURRENT_TIMESTAMP (same text form).
+	reDefaultNow = regexp.MustCompile(`(?i)DEFAULT\s+now\(\)`)
 )
 
 func rewriteSQL(q string) string {
@@ -106,5 +112,7 @@ func rewriteSQL(q string) string {
 		}
 		return m
 	})
+	q = reDefaultNow.ReplaceAllString(q, "DEFAULT CURRENT_TIMESTAMP")
+	q = reForUpdate.ReplaceAllString(q, "")
 	return q
 }

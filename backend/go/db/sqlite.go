@@ -29,6 +29,14 @@ func init() {
 	sqlitelib.MustRegisterScalarFunction("now", 0, func(_ *sqlitelib.FunctionContext, _ []driver.Value) (driver.Value, error) {
 		return time.Now().UTC().Format("2006-01-02 15:04:05"), nil
 	})
+	// Postgres advisory locks are meaningless on SQLite (single writer). Register
+	// them as no-ops so shared code that calls them resolves instead of erroring.
+	noopLock := func(_ *sqlitelib.FunctionContext, _ []driver.Value) (driver.Value, error) {
+		return int64(1), nil
+	}
+	sqlitelib.MustRegisterScalarFunction("pg_advisory_xact_lock", 1, noopLock)
+	sqlitelib.MustRegisterScalarFunction("pg_advisory_lock", 1, noopLock)
+	sqlitelib.MustRegisterScalarFunction("pg_advisory_unlock", 1, noopLock)
 }
 
 // Mode routing: on iOS, RunEmbedded calls SetSQLiteMode before opening stores so
