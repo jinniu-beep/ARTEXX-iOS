@@ -218,6 +218,62 @@ func cachedRegexp(pat string) *regexp.Regexp {
 	return re
 }
 
+// addedColumns mirrors the PG `ALTER TABLE … ADD COLUMN IF NOT EXISTS` migrations
+// that the schema conversion dropped. (BIGINT/INT → INTEGER, JSONB → TEXT.)
+var addedColumns = []struct{ table, name, def string }{
+	{"explorations", "round_no", "INTEGER NOT NULL DEFAULT 0"},
+	{"exploration_nodes", "content_version", "INTEGER NOT NULL DEFAULT 0"},
+	{"exploration_nodes", "cold_since_round", "INTEGER"},
+	{"activity", "main_seg", "INTEGER"},
+	{"intercept_pending", "audit", "TEXT"},
+	{"intercept_pending", "decision_source", "TEXT NOT NULL DEFAULT ''"},
+	{"findings", "evidence_version", "INTEGER NOT NULL DEFAULT 0"},
+	{"findings", "report_evidence_version", "INTEGER NOT NULL DEFAULT 0"},
+	{"side_question_sessions", "memory", "TEXT NOT NULL DEFAULT '{}'"},
+	{"side_question_requests", "context_info", "TEXT NOT NULL DEFAULT '{}'"},
+}
+
+// ensureAddedColumns adds any missing column from addedColumns. SQLite's ADD
+// COLUMN has no IF NOT EXISTS, so guard with PRAGMA table_info; idempotent.
+func ensureAddedColumns(db *sql.DB) error {
+	for _, c := range addedColumns {
+		has, err := columnExists(db, c.table, c.name)
+		if err != nil {
+			return err
+		}
+		if has {
+			continue
+		}
+		// table/name/def are package constants (no user input) — safe to inline.
+		if _, err := db.Exec("ALTER TABLE " + c.table + " ADD COLUMN " + c.name + " " + c.def); err != nil {
+			return fmt.Errorf("%s.%s: %w", c.table, c.name, err)
+		}
+	}
+	return nil
+}
+
+func columnExists(db *sql.DB, table, col string) (bool, error) {
+	rows, err := db.Query("PRAGMA table_info(" + table + ")")
+	if err != nil {
+		return false, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var (
+			cid, notnull, pk int
+			name, typ        string
+			dflt             sql.NullString
+		)
+		if err := rows.Scan(&cid, &name, &typ, &notnull, &dflt, &pk); err != nil {
+			return false, err
+		}
+		if strings.EqualFold(name, col) {
+			return true, nil
+		}
+	}
+	return false, rows.Err()
+}
+
 // Mode routing: on iOS, RunEmbedded calls SetSQLiteMode before opening stores so
 // the shared Open/DSN/coordinateWithSchemaMigration (defined in the Postgres-
 // oriented db.go) delegate here instead of touching Postgres.
@@ -279,6 +335,13 @@ func OpenSQLite(dbPath string) (*DB, error) {
 	if _, err := sqlDB.ExecContext(ctx, sqliteSchema); err != nil {
 		sqlDB.Close()
 		return nil, fmt.Errorf("apply sqlite schema: %w", err)
+	}
+	// Columns Postgres adds via `ALTER TABLE … ADD COLUMN IF NOT EXISTS` that the
+	// converted schema turned into comments (e.g. activity.main_seg) — add any that
+	// are missing so an older DB (and the fresh one) carries them all.
+	if err := ensureAddedColumns(sqlDB); err != nil {
+		sqlDB.Close()
+		return nil, fmt.Errorf("ensure added columns: %w", err)
 	}
 	if err := d.seedBuiltins(); err != nil {
 		sqlDB.Close()
