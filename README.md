@@ -8,11 +8,28 @@
 
 | 文件 | 说明 |
 | --- | --- |
-| `dist/ARTEXX-unsigned.ipa` | 未签名 ipa（79.5 MB），自签后可装 |
+| `dist/ARTEXX-unsigned.ipa` | 未签名 ipa（约 84 MB），自签后可装 |
 | `ios/ARTEXX.xcodeproj` | 可直接用 Xcode 打开的工程 |
+| `ios/ARTEXX/Resources/webui/` | **原版前端整站**（370 文件 / 27 条路由，与官方 `web/out` 逐字节一致） |
 | `ios/ARTEXX/Resources/cve.sqlite.gz` | 内置 CVE 知识库（解压 395 MB，压缩 78.5 MB） |
 | `ios/ARTEXX/Resources/skills.json` | 319 条技能 |
 | `ios/ARTEXX/Resources/exploits.json` | ExploitDB 25,095 条 CVE → 公开 EXP 映射 |
+| `build-ipa.cmd` | Windows 双击一键：生成工程 → 自检 → 推送 → 云端编译 → 下载 ipa |
+
+## 界面 = 原版前端（不是仿写）
+
+App 启动时在 **127.0.0.1:8787** 起一个内置 HTTP 服务，做两件事：
+
+1. **托管原版 Web UI**：把 `web/out` 整站塞进 ipa，`WKWebView` 从 `http://127.0.0.1:8787/` 加载。
+   前端跑在真实 origin 上，`/_next/static/...` 绝对路径、客户端路由、RSC 预取全部天然可用，**一行前端代码都不用改**。
+2. **实现 `/api/*`**：`APICompat.swift` 按 `web/src/lib/types.ts` 的字段定义逐条返回，
+   数据源换成 App 内的本地库（LocalTaskStore / SkillLibrary / CVEDatabase / LLMClient）。
+
+所以界面和电脑上一模一样，但**不需要电脑**：飞行模式也能开，任务、发现、技能、CVE 全在手机上。
+
+> 首次进入时前端需要登录态，App 会在页面脚本执行前把 token 注入 `localStorage.artex_token`，不会停在登录页。
+> 想切回原生 SwiftUI 版本：右上角小手机图标，或改 `UserDefaults` 里的 `artex.useWebUI`。
+
 
 ## 已实现：桌面端全部功能
 
@@ -92,7 +109,8 @@ open ios/ARTEXX.xcodeproj
 
 ### 方式三：GitHub Actions 云端编译（免费）
 
-仓库已配好 `.github/workflows/build-ipa.yml`，push 即构建，产物在 Actions → Artifacts。
+双击 `build-ipa.cmd` 一条龙（生成工程 → 语法自检 → 提交推送 → 等编译 → 下载 ipa 到 `dist/`），
+或手动：仓库已配好 `.github/workflows/build-ipa.yml`，push 即构建，产物在 Actions → Artifacts。
 
 需要签名的 ipa 时，配以下 Secrets 后手动触发并勾选 `signing`：
 `BUILD_CERT_P12`（p12 的 base64）、`BUILD_CERT_PASSWORD`、`PROVISION_PROFILE`（mobileprovision 的 base64）、
@@ -151,5 +169,8 @@ v1.0.1 起启动流程做了三处加固，**不会再卡在「ARTEXX 启动中�
 ## 已知边界
 
 - 未签名 ipa 首次安装需要自签工具，免费账号 7 天需重签
-- 内置知识库让包体到 79.5 MB（CVE 库占 78.5 MB），首次启动解压约 2~4 秒
+- 内置知识库让包体到约 84 MB（CVE 库 78.5 MB + 前端 11 MB），首次启动解压约 2~4 秒
 - TLS 指纹、JARM 等需要原生套接字的能力走远端模式
+- 原版前端的「对话 / LLM 录制 / 通知投递 / 审批历史」这类必须后端 Agent 参与的页面，本机模式下是空列表（不会报错），
+  接上真机服务器地址后才会有真实数据
+- 内置服务只监听 `127.0.0.1`，局域网里的其他设备连不进来（安全默认；要开放自己改 `EmbeddedServer.start`）

@@ -12,6 +12,7 @@ final class EmbeddedServer {
     private(set) var running = false
     private(set) var port: UInt16 = 8787
     private(set) var lastError: String?
+    private var retries = 0
     /// 极简鉴权：密码存本地，token 用固定派生值
     private let passwordKey = "artex.server.password"
     private let tokenKey = "artex.server.token"
@@ -36,11 +37,23 @@ final class EmbeddedServer {
                 case .ready:
                     self?.running = true
                     self?.lastError = nil
+                    self?.retries = 0
                     NSLog("[ARTEXX] 内置服务已启动 127.0.0.1:\(port)")
                 case .failed(let e):
                     self?.running = false
                     self?.lastError = e.localizedDescription
                     NSLog("[ARTEXX] 内置服务失败: \(e.localizedDescription)")
+                    // 端口被占用时自动换下一个，最多试 3 次
+                    guard let self else { return }
+                    if self.retries < 3 {
+                        self.retries += 1
+                        let next = self.port &+ 1
+                        self.listener?.cancel()
+                        self.listener = nil
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                            self.start(port: next)
+                        }
+                    }
                 default: break
                 }
             }
