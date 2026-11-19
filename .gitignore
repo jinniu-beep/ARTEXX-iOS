@@ -25,3 +25,8 @@ ios/ARTEXX/Go/
 
 # generated from skills.json (built in CI)
 ios/ARTEXX/Resources/skills/
+
+# vendored Next.js frontend build artifacts
+web/node_modules/
+web/out/
+web/.next/

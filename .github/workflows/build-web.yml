@@ -1,0 +1,46 @@
+name: Build web (static export)
+
+# Verifies the vendored Next.js frontend builds to a static export (out/), the
+# webui the app bundles. Foundational gate before CVE page / mobile adaptations.
+
+on:
+  push:
+    paths:
+      - 'web/**'
+      - '.github/workflows/build-web.yml'
+  workflow_dispatch: {}
+
+jobs:
+  build-web:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      HUSKY: "0"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install deps
+        working-directory: web
+        run: npm ci --no-audit --no-fund
+
+      - name: Build static export
+        working-directory: web
+        env:
+          NEXT_EXPORT: "1"
+        run: npm run build:static
+
+      - name: Verify out/
+        working-directory: web
+        run: |
+          set -euo pipefail
+          test -f out/index.html
+          echo "static export OK — $(find out -type f | wc -l) files"
+          ls out | head -20
