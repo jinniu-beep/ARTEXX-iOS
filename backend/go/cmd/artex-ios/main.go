@@ -25,7 +25,19 @@ var cancel context.CancelFunc
 // data directory. Returns 0 on success (server bound and serving), -1 on failure.
 //
 //export ArtexStart
-func ArtexStart(port C.int, dataDir *C.char, webuiDir *C.char) C.int {
+func ArtexStart(port C.int, dataDir *C.char, webuiDir *C.char) (rc C.int) {
+	// A panic during the synchronous boot (NewManager / schema / seed) would abort
+	// the whole host app. Recover it and return -1 so the Swift shell falls back to
+	// its embedded server instead of crash-looping.
+	defer func() {
+		if r := recover(); r != nil {
+			if cancel != nil {
+				cancel()
+				cancel = nil
+			}
+			rc = -1
+		}
+	}()
 	dir := C.GoString(dataDir)
 	web := C.GoString(webuiDir)
 	ctx, c := context.WithCancel(context.Background())
