@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"os"
 
+	artexdb "github.com/Autumn-27/artex/db"
 	_ "modernc.org/sqlite"
 )
 
@@ -100,6 +101,24 @@ func main() {
 	var n int
 	check("json_each (= ANY(array) substitute)", db.QueryRow(`SELECT count(*) FROM json_each('[1,2,3]')`).Scan(&n))
 	assert("json_each counts elements", n == 3, fmt.Sprintf("n=%d", n))
+
+	fmt.Println("## 4. real open path: db.OpenSQLite (embedded schema + seedBuiltins)")
+	ad, err := artexdb.OpenSQLite(":memory:")
+	if check(`db.OpenSQLite(":memory:")`, err) {
+		defer ad.Close()
+		var nt int
+		_ = ad.QueryRow(`SELECT count(*) FROM sqlite_master WHERE type='table'`).Scan(&nt)
+		assert("OpenSQLite created all tables", nt >= 49, fmt.Sprintf("%d tables", nt))
+		var na int
+		_ = ad.QueryRow(`SELECT count(*) FROM agents WHERE builtin=1`).Scan(&na)
+		assert("seedBuiltins seeded agents", na >= 5, fmt.Sprintf("%d builtin agents", na))
+		var k string
+		if e := ad.QueryRow(`SELECT key FROM agents WHERE key=$1`, "planner").Scan(&k); e != nil {
+			check("select planner via $1", e)
+		} else {
+			assert("planner agent seeded", k == "planner", "key="+k)
+		}
+	}
 
 	fmt.Printf("\n=== probe done: %d failure(s) ===\n", fails)
 	if fails > 0 {

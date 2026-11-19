@@ -8,6 +8,7 @@ on:
   push:
     paths:
       - 'backend/go/cmd/sqliteprobe/**'
+      - 'backend/go/db/**'
       - 'backend/schema.sqlite.sql'
       - '.github/workflows/sqlite-probe.yml'
   workflow_dispatch: {}
@@ -25,6 +26,9 @@ jobs:
         with:
           go-version: '1.26.x'
           cache: false
+
+      - name: Schema copy in sync (root == embedded)
+        run: diff backend/schema.sqlite.sql backend/go/db/schema_sqlite.sql
 
       - name: Run SQLite dialect probe
         working-directory: backend/go
