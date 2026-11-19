@@ -16,8 +16,11 @@ import (
 	"database/sql"
 	"database/sql/driver"
 	"encoding/json"
+	"fmt"
+	"os"
 	"reflect"
 	"regexp"
+	"strings"
 	"time"
 )
 
@@ -162,5 +165,8 @@ func rewriteSQL(q string) string {
 	// element as JSON — a bare value would be stored double-encoded as a string.
 	q = reDistinctOnMerge.ReplaceAllString(q,
 		`(SELECT json_group_array(json(value)) FROM (SELECT value FROM json_each(COALESCE(${1},'[]')) UNION SELECT value FROM json_each(COALESCE(${2},'[]'))))`)
+	if os.Getenv("SHIM_DEBUG") != "" && strings.Contains(q, "INSERT INTO assets") && strings.Contains(q, "c_segment") {
+		fmt.Fprintf(os.Stderr, "[shim-debug] rewritten ip insert:\n%s\n[shim-debug-end]\n", q)
+	}
 	return q
 }
