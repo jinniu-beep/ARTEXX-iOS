@@ -241,9 +241,7 @@ struct NewTaskSheet: View {
                                text: $description, multiline: true)
 
                     ArtexField(label: "授权目标",
-                               placeholder: "每行一个域名 / IP，例如：
-example.com
-192.168.1.10",
+                               placeholder: "每行一个域名 / IP，如 example.com 或 192.168.1.10",
                                text: $scope, multiline: true,
                                desc: "Agent 只测试这些目标")
 

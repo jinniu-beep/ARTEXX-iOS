@@ -287,7 +287,7 @@ struct LogsView: View {
                         EmptyHint(text: "暂无日志\n日志流需要连接 ARTEXX 服务端")
                     } else {
                         ForEach(data.keys.sorted(), id: \.self) { k in
-                            Text("(k): (data[k]?.display ?? "")")
+                            Text(k + ": " + (data[k]?.display ?? ""))
                                 .font(.system(size: 10, design: .monospaced))
                                 .foregroundStyle(ArtexTheme.text)
                         }
