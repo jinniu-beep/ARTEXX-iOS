@@ -89,12 +89,17 @@ var (
 	// PG column types used in runtime DDL (CREATE TABLE in Go). Uppercase-only so
 	// lowercase column names like `timestamp` are never touched.
 	rePGTypes = regexp.MustCompile(`\b(?:BIGSERIAL|SERIAL|TIMESTAMPTZ|TIMESTAMP|BIGINT|BOOLEAN|BYTEA)\b`)
-	// `FOR UPDATE [OF ident]` → nothing. SQLite is a single writer, so row locks are
-	// implicit; the clause is pure PG and invalid in SQLite.
-	reForUpdate = regexp.MustCompile(`(?i)\s+FOR\s+UPDATE(?:\s+OF\s+[a-zA-Z_][a-zA-Z0-9_]*)?`)
+	// `FOR UPDATE [OF ident] [SKIP LOCKED|NOWAIT]` → nothing. SQLite is a single
+	// writer, so row locks are implicit; the clause is pure PG and invalid in SQLite.
+	reForUpdate = regexp.MustCompile(`(?i)\s+FOR\s+UPDATE(?:\s+OF\s+[a-zA-Z_][a-zA-Z0-9_]*)?(?:\s+(?:SKIP\s+LOCKED|NOWAIT))?`)
 	// SQLite forbids custom functions in a DEFAULT clause, so `DEFAULT now()` in
 	// runtime DDL becomes the built-in CURRENT_TIMESTAMP (same text form).
 	reDefaultNow = regexp.MustCompile(`(?i)DEFAULT\s+now\(\)`)
+	// `STRING_AGG(DISTINCT col, 'sep')` → `GROUP_CONCAT(DISTINCT col)` (SQLite's
+	// DISTINCT group_concat can't take a separator; the shared sites use ',').
+	reStrAggDistinct = regexp.MustCompile(`(?i)STRING_AGG\(\s*DISTINCT\s+([A-Za-z_][A-Za-z0-9_.]*)\s*,\s*'[^']*'\s*\)`)
+	// Non-distinct `STRING_AGG(expr, sep)` → `GROUP_CONCAT(expr, sep)` (same shape).
+	reStrAgg = regexp.MustCompile(`(?i)\bSTRING_AGG\(`)
 )
 
 func rewriteSQL(q string) string {
@@ -114,5 +119,7 @@ func rewriteSQL(q string) string {
 	})
 	q = reDefaultNow.ReplaceAllString(q, "DEFAULT CURRENT_TIMESTAMP")
 	q = reForUpdate.ReplaceAllString(q, "")
+	q = reStrAggDistinct.ReplaceAllString(q, "GROUP_CONCAT(DISTINCT $1)")
+	q = reStrAgg.ReplaceAllString(q, "GROUP_CONCAT(")
 	return q
 }

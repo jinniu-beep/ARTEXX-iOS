@@ -53,6 +53,10 @@ func SetSQLiteMode(dbPath string) {
 	sqliteFilePath = dbPath
 }
 
+// SQLiteMode reports whether the data layer is routed to SQLite (iOS). Used by a
+// few callers outside this package that must swap a structural PG query.
+func SQLiteMode() bool { return sqliteMode }
+
 // sqliteDSN builds a modernc DSN. "" / ":memory:" → a shared in-memory database
 // (used by the probe/tests); any other value is treated as a file path.
 func sqliteDSN(dbPath string) string {

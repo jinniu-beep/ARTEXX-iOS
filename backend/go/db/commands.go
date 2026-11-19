@@ -200,8 +200,12 @@ func (d *DB) EnsureLLMRecordsTable() error {
 	if _, err := tx.Exec(llmRecordsSchema); err != nil {
 		return err
 	}
-	if _, err := tx.Exec(llmRecordsMigrate); err != nil {
-		return err
+	// The migrate only backfills columns onto pre-existing Postgres tables; a fresh
+	// SQLite table already has them all, and SQLite has no ADD COLUMN IF NOT EXISTS.
+	if !sqliteMode {
+		if _, err := tx.Exec(llmRecordsMigrate); err != nil {
+			return err
+		}
 	}
 	return tx.Commit()
 }
