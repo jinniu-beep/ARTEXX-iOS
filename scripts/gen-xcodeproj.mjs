@@ -17,7 +17,7 @@ function walk(dir, base) {
     const rel = base ? base + "/" + e.name : e.name;
     if (e.isDirectory()) {
       if (e.name.endsWith(".xcassets")) { out.push({ rel: rel, type: "assets" }); continue; }
-      if (e.name === "webui") { out.push({ rel: rel, type: "folder" }); continue; }
+      if (e.name === "webui" || e.name === "skills") { out.push({ rel: rel, type: "folder" }); continue; }
       out = out.concat(walk(path.join(dir, e.name), rel));
     } else {
       const ext = path.extname(e.name);

@@ -29,6 +29,9 @@ jobs:
       - name: Build Go backend (libartex.a)
         run: bash backend/go/build-go.sh
 
+      - name: Generate skills SKILL.md tree (bundled)
+        run: node scripts/skills-json-to-dirs.mjs
+
       - name: Generate Xcode project (links libartex.a)
         run: node scripts/gen-xcodeproj.mjs
 

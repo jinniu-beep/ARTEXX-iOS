@@ -8,36 +8,57 @@ import (
 	"log"
 	"net/http"
 	"strconv"
+	"sync"
 
 	"github.com/Autumn-27/artex/cve"
 )
 
-var cveDB *cve.DB
+var (
+	cveMu   sync.Mutex
+	cveDB   *cve.DB
+	cvePath string
+)
 
-// SetCVEStore opens the read-only CVE database at path. A missing/unreadable file
-// just leaves the CVE routes returning 503; it never blocks startup.
+// SetCVEStore records the CVE database path and tries to open it. It is safe to
+// call before the file exists (the Swift shell unpacks cve.sqlite.gz in the
+// background): the store opens lazily on the first request once the file appears.
 func SetCVEStore(path string) {
-	d, err := cve.Open(path)
+	cveMu.Lock()
+	cvePath = path
+	cveMu.Unlock()
+	ensureCVE()
+}
+
+// ensureCVE returns the open store, opening it on demand (file may have just
+// finished unpacking). nil until the file is present and readable.
+func ensureCVE() *cve.DB {
+	cveMu.Lock()
+	defer cveMu.Unlock()
+	if cveDB != nil || cvePath == "" {
+		return cveDB
+	}
+	d, err := cve.Open(cvePath)
 	if err != nil {
-		log.Printf("[cve] 未加载 (%s): %v", path, err)
-		return
+		return nil // not unpacked yet; retried on the next request
 	}
 	cveDB = d
-	if st, err := d.Stats(); err == nil {
+	if st, e := d.Stats(); e == nil {
 		log.Printf("[cve] 已加载: %v 条", st["total"])
 	}
+	return cveDB
 }
 
 func (s *Server) cveSearch(w http.ResponseWriter, r *http.Request) {
-	if cveDB == nil {
-		writeErr(w, 503, "CVE 库未加载")
+	db := ensureCVE()
+	if db == nil {
+		writeErr(w, 503, "CVE 库尚未就绪")
 		return
 	}
 	q := r.URL.Query()
 	minScore, _ := strconv.ParseFloat(q.Get("min_score"), 64)
 	limit, _ := strconv.Atoi(q.Get("limit"))
 	offset, _ := strconv.Atoi(q.Get("offset"))
-	entries, total, err := cveDB.Search(q.Get("q"), q.Get("severity"), q.Get("vendor"), minScore, limit, offset)
+	entries, total, err := db.Search(q.Get("q"), q.Get("severity"), q.Get("vendor"), minScore, limit, offset)
 	if err != nil {
 		writeErr(w, 500, err.Error())
 		return
@@ -49,11 +70,12 @@ func (s *Server) cveSearch(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) cveGet(w http.ResponseWriter, r *http.Request) {
-	if cveDB == nil {
-		writeErr(w, 503, "CVE 库未加载")
+	db := ensureCVE()
+	if db == nil {
+		writeErr(w, 503, "CVE 库尚未就绪")
 		return
 	}
-	e, err := cveDB.Get(r.PathValue("id"))
+	e, err := db.Get(r.PathValue("id"))
 	if err != nil {
 		writeErr(w, 500, err.Error())
 		return
@@ -66,11 +88,12 @@ func (s *Server) cveGet(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) cveStats(w http.ResponseWriter, r *http.Request) {
-	if cveDB == nil {
-		writeErr(w, 503, "CVE 库未加载")
+	db := ensureCVE()
+	if db == nil {
+		writeErr(w, 503, "CVE 库尚未就绪")
 		return
 	}
-	st, err := cveDB.Stats()
+	st, err := db.Stats()
 	if err != nil {
 		writeErr(w, 500, err.Error())
 		return

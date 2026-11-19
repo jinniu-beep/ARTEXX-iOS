@@ -25,10 +25,21 @@ final class GoBackend {
         return ""
     }
 
+    /// 首次启动把随包的 skills 目录解包到可写数据目录（Go 侧要能写，不能直接读 bundle）。
+    static func ensureSkills() {
+        let fm = FileManager.default
+        let dst = URL(fileURLWithPath: dataDir()).appendingPathComponent("skills", isDirectory: true)
+        if fm.fileExists(atPath: dst.path) { return }
+        guard let src = Bundle.main.resourceURL?.appendingPathComponent("skills", isDirectory: true),
+              fm.fileExists(atPath: src.path) else { return }
+        try? fm.copyItem(at: src, to: dst)
+    }
+
     /// 启动后端。成功返回 true（服务已绑定并在应答），失败返回 false。
     @discardableResult
     func start(port: Int32 = 8787) -> Bool {
         guard !started else { return true }
+        GoBackend.ensureSkills()
         let data = GoBackend.dataDir()
         let web = GoBackend.webuiDir()
         let rc = data.withCString { d in

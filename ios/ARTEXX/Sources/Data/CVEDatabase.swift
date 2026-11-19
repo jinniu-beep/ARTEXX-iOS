@@ -12,10 +12,10 @@ final class CVEDatabase: ObservableObject {
     @Published private(set) var totalRows = 0
 
     private var dbPath: URL {
-        let dir = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("ARTEXX", isDirectory: true)
-        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-        return dir.appendingPathComponent("cve.sqlite")
+        // Shared with the Go backend's data dir (Application Support/artex) so the
+        // 395MB database is decompressed once and both the native CVE view and the
+        // Go /api/cve endpoints read the same file.
+        URL(fileURLWithPath: GoBackend.dataDir()).appendingPathComponent("cve.sqlite")
     }
 
     @Published private(set) var phase: Phase = .idle
