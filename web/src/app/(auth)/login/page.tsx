@@ -50,8 +50,13 @@ export default function LoginPage() {
       window.location.replace("/function/tasks");
       return;
     }
-    api
-      .authStatus()
+    // 给后端状态探测加超时：内置后端首启时 /api 可能短暂不应答，
+    // 没有超时就会永远停在「正在检查登录状态…」。超时按「已初始化」处理，
+    // 只展示登录表单，绝不把用户误送去 /setup 覆盖已有密码。
+    const timeout = new Promise<{ initialized: boolean }>((resolve) =>
+      setTimeout(() => resolve({ initialized: true }), 6000),
+    );
+    Promise.race([api.authStatus(), timeout])
       .then(({ initialized }) => {
         if (!initialized) router.replace("/setup");
       })

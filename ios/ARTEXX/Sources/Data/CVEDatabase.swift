@@ -25,7 +25,9 @@ final class CVEDatabase: ObservableObject {
     func bootstrap() {
         guard phase == .idle || isFailed else { return }
         phase = .preparing
-        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+        // .utility（非 .userInitiated）：395MB 解压让位给后端建库 + 首屏，
+        // 否则首启被解压抢占 CPU/IO，/api 迟迟不应答。
+        DispatchQueue.global(qos: .utility).async { [weak self] in
             guard let self else { return }
             let result = self.prepare()
             DispatchQueue.main.async {
