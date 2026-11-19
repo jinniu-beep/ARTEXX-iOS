@@ -22,3 +22,6 @@ package-lock.json
 
 # Go backend build output (built in CI, never committed)
 ios/ARTEXX/Go/
+
+# generated from skills.json (built in CI)
+ios/ARTEXX/Resources/skills/

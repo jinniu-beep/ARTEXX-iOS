@@ -74,6 +74,31 @@ func post(ts *httptest.Server, path, token, body string) {
 	fmt.Printf("  [%s] POST %-18s %d  %s\n", tag, path, resp.StatusCode, snip)
 }
 
+func checkSkillCount(ts *httptest.Server, token string) {
+	req, _ := http.NewRequest(http.MethodGet, ts.URL+"/api/skills", nil)
+	if token != "" {
+		req.Header.Set("Authorization", "Bearer "+token)
+	}
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		fmt.Println("  [FAIL] /api/skills:", err)
+		fails++
+		return
+	}
+	defer resp.Body.Close()
+	raw, _ := io.ReadAll(resp.Body)
+	var out struct {
+		Skills []json.RawMessage `json:"skills"`
+	}
+	_ = json.Unmarshal(raw, &out)
+	tag := " ok "
+	if len(out.Skills) < 300 {
+		tag = "FAIL"
+		fails++
+	}
+	fmt.Printf("  [%s] /api/skills count = %d (want 319)\n", tag, len(out.Skills))
+}
+
 func initAdmin(ts *httptest.Server) string {
 	payload, _ := json.Marshal(map[string]string{"password": "ArtexTest123!"})
 	resp, err := http.Post(ts.URL+"/api/auth/init", "application/json", bytes.NewReader(payload))
@@ -116,7 +141,11 @@ func main() {
 	defer mgr.Close()
 	fmt.Println("  [ ok ] NewManager (stores opened on SQLite)")
 
-	srv := server.New(context.Background(), mgr, filepath.Join(dir, "skills"), dir, dir)
+	skillDir := filepath.Join(dir, "skills")
+	if s := os.Getenv("SKILLS_DIR"); s != "" {
+		skillDir = s // point at the generated SKILL.md tree to verify loading
+	}
+	srv := server.New(context.Background(), mgr, skillDir, dir, dir)
 	ts := httptest.NewServer(srv.Handler())
 	defer ts.Close()
 	fmt.Println("  [ ok ] server.New + Handler (253 routes)")
@@ -154,6 +183,9 @@ func main() {
 		`]}`)
 	// read back: did the writes persist (and does the list query still work)?
 	get(ts, "/api/assets", token)
+
+	fmt.Println("## skills library (expect the 319 converted SKILL.md to load)")
+	checkSkillCount(ts, token)
 
 	fmt.Printf("\n=== bootprobe done: %d failure(s) ===\n", fails)
 	if fails > 0 {

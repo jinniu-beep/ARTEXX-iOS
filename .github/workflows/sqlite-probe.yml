@@ -9,6 +9,8 @@ on:
     paths:
       - 'backend/go/**'
       - 'backend/schema.sqlite.sql'
+      - 'scripts/skills-json-to-dirs.mjs'
+      - 'ios/ARTEXX/Resources/skills.json'
       - '.github/workflows/sqlite-probe.yml'
   workflow_dispatch: {}
 
@@ -33,6 +35,11 @@ jobs:
         working-directory: backend/go
         run: go run ./cmd/sqliteprobe ../../backend/schema.sqlite.sql
 
+      - name: Generate skills SKILL.md tree
+        run: node scripts/skills-json-to-dirs.mjs
+
       - name: Run full-boot probe (NewManager -> Handler on SQLite)
         working-directory: backend/go
+        env:
+          SKILLS_DIR: ${{ github.workspace }}/ios/ARTEXX/Resources/skills
         run: go run ./cmd/bootprobe
