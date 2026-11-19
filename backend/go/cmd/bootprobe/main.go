@@ -143,7 +143,7 @@ func main() {
 	}
 
 	fmt.Println("## authed WRITES (asset-subsystem dialect debt surfaces here)")
-	post(ts, "/api/companies", token, `{"name":"probe-co","scope":{}}`)
+	post(ts, "/api/companies", token, `{"name":"probe-co","scope":[]}`)
 	post(ts, "/api/assets", token, `{"task_id":0,"assets":[`+
 		`{"type":"root_domain","domain":"probe.example"},`+
 		`{"type":"subdomain","domain":"www.probe.example","record_type":"A","record_value":["203.0.113.9"]},`+

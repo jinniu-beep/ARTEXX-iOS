@@ -130,6 +130,11 @@ var (
 	// The recurring asset-merge idiom `(SELECT ARRAY(SELECT DISTINCT unnest(A || B)))`
 	// → a JSON set-union over the two arrays (columns are JSON text on SQLite).
 	reArrayMerge = regexp.MustCompile(`(?i)\(\s*SELECT\s+ARRAY\(\s*SELECT\s+DISTINCT\s+unnest\(\s*([\w.]+)\s*\|\|\s*([\w.]+)\s*\)\s*\)\s*\)`)
+	// The `DISTINCT ON (...) elem FROM unnest(A || B) AS elem [ORDER BY ...]` merges
+	// (open_ports, auth) → the same JSON set-union. Pragmatic: open_ports is then
+	// deduped by whole entry, not by port-preferring-service (a re-scanned port with
+	// new banner data can appear twice instead of merging).
+	reDistinctOnMerge = regexp.MustCompile(`(?is)\(\s*SELECT\s+ARRAY\(\s*SELECT\s+DISTINCT\s+ON\s+\(.*?\)\s+elem\s+FROM\s+unnest\(\s*([\w.]+)\s*\|\|\s*([\w.]+)\s*\)\s+AS\s+elem.*?\)\s*\)`)
 )
 
 func rewriteSQL(q string) string {
@@ -152,6 +157,8 @@ func rewriteSQL(q string) string {
 	q = reStrAggDistinct.ReplaceAllString(q, "GROUP_CONCAT(DISTINCT $1)")
 	q = reStrAgg.ReplaceAllString(q, "GROUP_CONCAT(")
 	q = reArrayMerge.ReplaceAllString(q,
+		`(SELECT json_group_array(value) FROM (SELECT value FROM json_each(COALESCE(${1},'[]')) UNION SELECT value FROM json_each(COALESCE(${2},'[]'))))`)
+	q = reDistinctOnMerge.ReplaceAllString(q,
 		`(SELECT json_group_array(value) FROM (SELECT value FROM json_each(COALESCE(${1},'[]')) UNION SELECT value FROM json_each(COALESCE(${2},'[]'))))`)
 	return q
 }

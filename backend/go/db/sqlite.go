@@ -37,6 +37,15 @@ func init() {
 	sqlitelib.MustRegisterScalarFunction("pg_advisory_xact_lock", 1, noopLock)
 	sqlitelib.MustRegisterScalarFunction("pg_advisory_lock", 1, noopLock)
 	sqlitelib.MustRegisterScalarFunction("pg_advisory_unlock", 1, noopLock)
+
+	// On SQLite the array columns already hold JSON text, so the list query's
+	// array_to_json(col) is the identity (returns the stored JSON string).
+	sqlitelib.MustRegisterScalarFunction("array_to_json", 1, func(_ *sqlitelib.FunctionContext, args []driver.Value) (driver.Value, error) {
+		if len(args) == 0 {
+			return nil, nil
+		}
+		return args[0], nil
+	})
 }
 
 // Mode routing: on iOS, RunEmbedded calls SetSQLiteMode before opening stores so
