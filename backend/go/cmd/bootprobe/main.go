@@ -48,6 +48,32 @@ func get(ts *httptest.Server, path, token string) {
 	fmt.Printf("  [%s] GET %-18s %d  %s\n", tag, path, resp.StatusCode, snip)
 }
 
+func post(ts *httptest.Server, path, token, body string) {
+	req, _ := http.NewRequest(http.MethodPost, ts.URL+path, strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	if token != "" {
+		req.Header.Set("Authorization", "Bearer "+token)
+	}
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		fmt.Printf("  [FAIL] POST %-18s %v\n", path, err)
+		fails++
+		return
+	}
+	defer resp.Body.Close()
+	raw, _ := io.ReadAll(resp.Body)
+	snip := strings.TrimSpace(string(raw))
+	if len(snip) > 220 {
+		snip = snip[:220]
+	}
+	tag := " ok "
+	if resp.StatusCode >= 500 {
+		tag = "FAIL"
+		fails++
+	}
+	fmt.Printf("  [%s] POST %-18s %d  %s\n", tag, path, resp.StatusCode, snip)
+}
+
 func initAdmin(ts *httptest.Server) string {
 	payload, _ := json.Marshal(map[string]string{"password": "ArtexTest123!"})
 	resp, err := http.Post(ts.URL+"/api/auth/init", "application/json", bytes.NewReader(payload))
@@ -115,6 +141,17 @@ func main() {
 	} {
 		get(ts, p, token)
 	}
+
+	fmt.Println("## authed WRITES (asset-subsystem dialect debt surfaces here)")
+	post(ts, "/api/companies", token, `{"name":"probe-co","scope":{}}`)
+	post(ts, "/api/assets", token, `{"task_id":0,"assets":[`+
+		`{"type":"root_domain","domain":"probe.example"},`+
+		`{"type":"subdomain","domain":"www.probe.example","record_type":"A","record_value":["203.0.113.9"]},`+
+		`{"type":"ip","ip":"203.0.113.9","bound_domains":["probe.example"]},`+
+		`{"type":"service","url":"http://probe.example","technologies":["nginx"],"port":80}`+
+		`]}`)
+	// read back: did the writes persist (and does the list query still work)?
+	get(ts, "/api/assets", token)
 
 	fmt.Printf("\n=== bootprobe done: %d failure(s) ===\n", fails)
 	if fails > 0 {
