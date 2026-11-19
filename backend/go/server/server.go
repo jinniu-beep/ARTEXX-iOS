@@ -932,6 +932,11 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("PUT /api/intercept/judge", s.interceptSetJudgeConfig)
 	mux.HandleFunc("GET /api/intercept/judge/usage", s.interceptJudgeUsage) // 兜底审批累计 token 用量
 
+	// CVE knowledge base (add-only; served from the bundled cve.sqlite when loaded).
+	mux.HandleFunc("GET /api/cve/search", s.cveSearch)
+	mux.HandleFunc("GET /api/cve/stats", s.cveStats)
+	mux.HandleFunc("GET /api/cve/{id}", s.cveGet)
+
 	// /api/* goes through CORS + JWT; everything else is served by the embedded
 	// frontend (public — auth is enforced client-side and on the API). With the
 	// no-embed build the webui handler just 404s (run `next dev` separately).

@@ -39,6 +39,9 @@ func RunEmbedded(ctx context.Context, port int, dataDir, webuiDir string) error 
 	// Route the data layer to SQLite before opening stores — iOS has no Postgres.
 	pgdb.SetSQLiteMode(filepath.Join(dataDir, "artex.sqlite"))
 
+	// CVE knowledge base: the Swift shell unpacks cve.sqlite.gz here on first launch.
+	SetCVEStore(filepath.Join(dataDir, "cve.sqlite"))
+
 	// proxy "" → the MITM traffic-recording subsystem stays off on iOS (an app
 	// cannot rewrite the system proxy anyway). Everything else boots as on desktop.
 	mgr, err := NewManager(dataDir, "")

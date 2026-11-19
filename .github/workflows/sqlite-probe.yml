@@ -38,8 +38,12 @@ jobs:
       - name: Generate skills SKILL.md tree
         run: node scripts/skills-json-to-dirs.mjs
 
+      - name: Decompress CVE db
+        run: gunzip -k -f ios/ARTEXX/Resources/cve.sqlite.gz
+
       - name: Run full-boot probe (NewManager -> Handler on SQLite)
         working-directory: backend/go
         env:
           SKILLS_DIR: ${{ github.workspace }}/ios/ARTEXX/Resources/skills
+          CVE_DB: ${{ github.workspace }}/ios/ARTEXX/Resources/cve.sqlite
         run: go run ./cmd/bootprobe

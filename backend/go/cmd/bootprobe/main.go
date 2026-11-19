@@ -187,6 +187,13 @@ func main() {
 	fmt.Println("## skills library (expect the 319 converted SKILL.md to load)")
 	checkSkillCount(ts, token)
 
+	if cvePath := os.Getenv("CVE_DB"); cvePath != "" {
+		fmt.Println("## CVE knowledge base (FTS5)")
+		server.SetCVEStore(cvePath)
+		get(ts, "/api/cve/stats", token)
+		get(ts, "/api/cve/search?q=apache+tomcat&limit=3", token)
+	}
+
 	fmt.Printf("\n=== bootprobe done: %d failure(s) ===\n", fails)
 	if fails > 0 {
 		os.Exit(1)
