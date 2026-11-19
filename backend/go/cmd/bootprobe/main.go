@@ -165,6 +165,7 @@ func main() {
 		"/api/companies",
 		"/api/conversations",
 		"/api/agents",
+		"/api/tools", // scans tools.schema/exec (jsonb → *json.RawMessage)
 		"/api/skills",
 		"/api/goals",
 	} {

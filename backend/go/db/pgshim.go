@@ -242,27 +242,38 @@ func namedToValues(named []driver.NamedValue) []driver.Value {
 	return vals
 }
 
+// Per-column coercion kind, computed once from the column names.
+const (
+	colPlain uint8 = iota
+	colTime        // *_at / open_until / … → time.Time
+	colJSON        // jsonb → []byte (so *json.RawMessage targets scan)
+)
+
 type shimRows struct {
 	driver.Rows
-	timeCol []bool
+	kind []uint8
 }
 
-// wrapRows marks the *_at columns; a result set with none keeps the base Rows
+// wrapRows marks time/json columns; a result set with none keeps the base Rows
 // untouched (no per-row cost, and its optional column-type interfaces survive).
 func wrapRows(r driver.Rows) driver.Rows {
 	cols := r.Columns()
-	tc := make([]bool, len(cols))
-	anyTime := false
+	kind := make([]uint8, len(cols))
+	anySpecial := false
 	for i, c := range cols {
-		if isTimeColName(c) {
-			tc[i] = true
-			anyTime = true
+		switch {
+		case isTimeColName(c):
+			kind[i] = colTime
+			anySpecial = true
+		case isJSONColName(c):
+			kind[i] = colJSON
+			anySpecial = true
 		}
 	}
-	if !anyTime {
+	if !anySpecial {
 		return r
 	}
-	return &shimRows{Rows: r, timeCol: tc}
+	return &shimRows{Rows: r, kind: kind}
 }
 
 func (r *shimRows) Next(dest []driver.Value) error {
@@ -270,17 +281,27 @@ func (r *shimRows) Next(dest []driver.Value) error {
 		return err
 	}
 	for i := range dest {
-		if i >= len(r.timeCol) || !r.timeCol[i] {
+		if i >= len(r.kind) {
 			continue
 		}
-		switch v := dest[i].(type) {
-		case string:
-			if t, ok := parseSQLiteTime(v); ok {
-				dest[i] = t
+		switch r.kind[i] {
+		case colTime:
+			switch v := dest[i].(type) {
+			case string:
+				if t, ok := parseSQLiteTime(v); ok {
+					dest[i] = t
+				}
+			case []byte:
+				if t, ok := parseSQLiteTime(string(v)); ok {
+					dest[i] = t
+				}
 			}
-		case []byte:
-			if t, ok := parseSQLiteTime(string(v)); ok {
-				dest[i] = t
+		case colJSON:
+			// modernc returns TEXT as a Go string; database/sql cannot assign a
+			// string to *json.RawMessage (a named []byte), but CAN assign []byte.
+			// Harmless for *string / *[]byte / []byte-intermediate targets.
+			if s, ok := dest[i].(string); ok {
+				dest[i] = []byte(s)
 			}
 		}
 	}
@@ -306,6 +327,23 @@ var extraTimeCols = map[string]bool{
 func isTimeColName(name string) bool {
 	n := strings.ToLower(name)
 	return strings.HasSuffix(n, "_at") || extraTimeCols[n]
+}
+
+// isJSONColName lists the jsonb columns scanned into *json.RawMessage (a named
+// []byte). tools.schema/exec are scanned directly and fail as strings; payload /
+// metadata are json.RawMessage fields too (mostly read via a []byte intermediate,
+// which []byte also satisfies, so coercing them is safe and future-proofs any
+// direct scan). Columns read into a plain Go string (extra/config/filter/params…)
+// are deliberately left out — they already work and need no change.
+var jsonCols = map[string]bool{
+	"schema":   true, // tools.schema
+	"exec":     true, // tools.exec
+	"payload":  true, // exploration_nodes.payload
+	"metadata": true, // exploration_nodes / activity metadata
+}
+
+func isJSONColName(name string) bool {
+	return jsonCols[strings.ToLower(name)]
 }
 
 // Layouts cover datetime('now') ("2006-01-02 15:04:05", UTC, no zone) and the
