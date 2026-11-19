@@ -30,3 +30,7 @@ ios/ARTEXX/Resources/skills/
 web/node_modules/
 web/out/
 web/.next/
+
+# but DO track the vendored frontend manifest/lockfile
+!web/package.json
+!web/package-lock.json
