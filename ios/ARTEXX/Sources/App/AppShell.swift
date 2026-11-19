@@ -151,24 +151,28 @@ struct AppShell: View {
         switch selection {
         case .dashboard: DashboardView()
         case .tasks: TaskListView()
-        case .findings: NAVWrapper { FindingsView() }
-        case .chat: NAVWrapper { ChatListView() }
-        case .traffic: NAVWrapper { TrafficView() }
-        case .commands: NAVWrapper { CommandsView() }
-        case .assets: NAVWrapper { AssetsView() }
-        case .workspace: NAVWrapper { WorkspaceView() }
-        case .llm: NAVWrapper { LLMView() }
-        case .agents: NAVWrapper { AgentsView() }
-        case .tools: NAVWrapper { ToolsView() }
-        case .approvals: NAVWrapper { ApprovalsView() }
-        case .logs: NAVWrapper { LogsView() }
-        case .settings: NAVWrapper { SettingsView() }
+        case .findings: FindingsView()
+        case .chat: ChatListView()
+        case .traffic: TrafficView()
+        case .commands: CommandsView()
+        case .assets: AssetsView()
+        case .workspace: WorkspaceView()
+        case .llm: LLMView()
+        case .agents: AgentsView()
+        case .tools: ToolsView()
+        case .approvals: ApprovalsView2()
+        case .logs: LogsView()
+        case .settings: SettingsView()
         case .skills: SkillLibraryView()
         case .cve: CVEView()
         case .console: ConsoleView()
         case .localScan: LocalScanView()
-        case .sync, .mcp, .notify, .intercept, .assetIntercept, .llmRecords:
-            PlaceholderPage(entry: selection)
+        case .sync: SyncView()
+        case .mcp: MCPView()
+        case .notify: NotifyView()
+        case .intercept: InterceptView()
+        case .assetIntercept: AssetInterceptView()
+        case .llmRecords: LLMRecordsView()
         }
     }
 }

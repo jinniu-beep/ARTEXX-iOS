@@ -1,322 +1,356 @@
 import SwiftUI
 
+/// 任务页 —— 对齐 function/tasks/page.tsx
+/// 结构：Tabs(当前任务/已归档) + 搜索 + 状态筛选 + 分类筛选 + 新建任务
 struct TaskListView: View {
     @EnvironmentObject var store: AppStore
     @ObservedObject private var localStore = LocalTaskStore.shared
-    @State private var tasks: [TaskItem] = []
-    @State private var showNewLocal = false
-    @State private var loading = false
-    @State private var showNew = false
-    @State private var filter = "全部"
 
-    private var filters: [String] { ["全部", "running", "paused", "done", "failed"] }
+    @State private var activeTab = 0                 // 0=当前任务 1=已归档
+    @State private var query = ""
+    @State private var statusFilter = "全部状态"
+    @State private var categoryFilter = "全部分类"
+    @State private var showNewTask = false
+
+    @State private var remoteTasks: [TaskItem] = []
+    @State private var loading = false
+
+    private let statusOptions = ["全部状态", "运行中", "待运行", "已完成", "失败", "已停止"]
 
     var body: some View {
-        Group {
-            if store.offlineMode {
-                localList
-            } else {
-            VStack(spacing: 0) {
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 8) {
-                        ForEach(filters, id: \.self) { f in
-                            Button {
-                                filter = f
-                            } label: {
-                                Pill(text: f, color: filter == f ? ArtexTheme.accent : ArtexTheme.dim)
-                            }
-                        }
-                    }.padding(.horizontal, 14).padding(.vertical, 8)
-                }
-
-                if loading && tasks.isEmpty {
-                    Spacer(); ProgressView().tint(ArtexTheme.accent); Spacer()
-                } else if visible.isEmpty {
-                    EmptyHint(text: "还没有任务。点右上角 + 新建一个渗透任务。")
-                    Spacer()
-                } else {
-                    List {
-                        ForEach(visible) { t in
-                            NavigationLink {
-                                TaskDetailView(task: t)
-                            } label: {
-                                row(t)
-                            }
-                            .listRowBackground(ArtexTheme.surface)
-                        }
-                        .onDelete { idx in
-                            let items = idx.map { visible[$0] }
-                            Task {
-                                for t in items { try? await TaskAPI.remove(t.id) }
-                                await load()
-                            }
-                        }
-                    }
-                    .scrollContentBackground(.hidden)
-                    .refreshable { await load() }
-                }
-            }
-            .background(ArtexTheme.bg)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button {
-                        if store.offlineMode { showNewLocal = true } else { showNew = true }
-                    } label: { Image(systemName: "plus") }
-                }
-                ToolbarItem(placement: .navigationBarLeading) {
-                    Button { Task { await load() } } label: { Image(systemName: "arrow.clockwise") }
-                }
-            }
-            .sheet(isPresented: $showNew) {
-                NewTaskView { await load() }
-            }
-            .sheet(isPresented: $showNewLocal) {
-                NewLocalTaskView()
-            }
-            .task { if !store.offlineMode { await load() } }
-            }
-        }
-    }
-
-    /// 离线模式下的本地任务列表（真正可用）
-    private var localList: some View {
         VStack(spacing: 0) {
-            OfflineBadge()
-            if localStore.tasks.isEmpty {
-                VStack(spacing: 16) {
-                    EmptyHint(text: "还没有本地任务。\n点右上角 + 建一个，Agent 会用手机网络直接跑。")
-                    if !LLMClient.shared.config.ready {
-                        NavigationLink { LLMConfigView() } label: {
-                            Text("先配置模型 API Key")
-                                .font(.system(size: 13, weight: .semibold))
-                                .padding(.horizontal, 18).padding(.vertical, 10)
-                                .background(ArtexTheme.accent).foregroundStyle(.black)
-                                .clipShape(Capsule())
-                        }
-                    }
+            PageTitle("任务", sub: "管理渗透测试任务 · \(visibleCount) 个", action: AnyView(
+                ArtexButton(title: "新建任务", icon: "plus", compact: true) { showNewTask = true }
+            ))
+
+            ArtexTabs(items: ["当前任务", "已归档"], selection: $activeTab)
+
+            // 筛选栏
+            VStack(spacing: 8) {
+                SearchField(placeholder: "搜索任务名称 / 描述 / ID", text: $query)
+                HStack(spacing: 8) {
+                    FilterMenu(label: "状态", options: statusOptions, selection: $statusFilter)
+                    FilterMenu(label: "任务分类", options: ["全部分类", "Web 渗透", "内网", "云原生", "红队"], selection: $categoryFilter)
                     Spacer()
                 }
+            }
+            .padding(.horizontal, 16).padding(.vertical, 10)
+
+            if loading && rows.isEmpty {
+                Spacer(); ProgressView().tint(ArtexTheme.accent); Spacer()
+            } else if rows.isEmpty {
+                EmptyHint(text: activeTab == 0 ? "还没有任务，点右上角新建" : "暂无归档任务")
+                Spacer()
             } else {
-                List {
-                    ForEach(localStore.tasks) { task in
-                        NavigationLink {
-                            LocalTaskDetailView(taskID: task.id)
-                        } label: {
-                            localRow(task)
-                        }
-                        .listRowBackground(ArtexTheme.surface)
-                        .swipeActions(edge: .trailing) {
-                            Button(role: .destructive) {
-                                localStore.delete(task.id)
-                            } label: { Label("删除", systemImage: "trash") }
+                ScrollView {
+                    LazyVStack(spacing: 8) {
+                        ForEach(rows) { t in
+                            taskCard(t)
                         }
                     }
+                    .padding(.horizontal, 16).padding(.bottom, 20)
                 }
-                .scrollContentBackground(.hidden)
             }
         }
+        .background(ArtexTheme.bg)
+        .sheet(isPresented: $showNewTask) { NewTaskSheet() }
+        .task { await load() }
     }
 
-    private func localRow(_ t: LocalTask) -> some View {
-        let sev = t.severityCount
-        return VStack(alignment: .leading, spacing: 6) {
-            HStack {
-                Text(t.title).font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(ArtexTheme.text).lineLimit(1)
-                Spacer()
-                Pill(text: statusLabel(t.status), color: localStatusColor(t.status))
+    // MARK: - 行数据（统一成本地结构）
+    struct Row: Identifiable {
+        var id: String
+        var title: String
+        var objective: String
+        var status: String
+        var targets: Int
+        var steps: Int
+        var findings: Int
+        var sev: (c: Int, h: Int, m: Int)
+        var updated: Date?
+        var category: String
+        var localID: UUID?
+    }
+
+    private var rows: [Row] {
+        var list: [Row] = []
+
+        if store.offlineMode {
+            list = localStore.tasks.map { t in
+                let s = t.severityCount
+                return Row(id: t.id.uuidString, title: t.title, objective: t.objective,
+                           status: t.status, targets: t.targets.count, steps: t.steps.count,
+                           findings: t.findings.count, sev: (s.critical, s.high, s.medium),
+                           updated: t.updatedAt, category: "", localID: t.id)
             }
-            HStack(spacing: 10) {
-                Label("\(t.targets.count) 目标", systemImage: "scope")
-                Label("\(t.steps.count) 步", systemImage: "list.number")
-                if !t.findings.isEmpty {
-                    Label("\(t.findings.count) 发现", systemImage: "exclamationmark.triangle")
-                }
-                Text(t.updatedAt.formatted(date: .omitted, time: .shortened))
-            }
-            .font(.system(size: 10, design: .monospaced)).foregroundStyle(ArtexTheme.dim)
-            if sev.critical + sev.high > 0 {
-                HStack(spacing: 6) {
-                    if sev.critical > 0 { Pill(text: "C \(sev.critical)", color: ArtexTheme.critical) }
-                    if sev.high > 0 { Pill(text: "H \(sev.high)", color: ArtexTheme.high) }
-                    if sev.medium > 0 { Pill(text: "M \(sev.medium)", color: ArtexTheme.medium) }
-                }
-            }
-            if !t.objective.isEmpty {
-                Text(t.objective).font(.system(size: 11)).foregroundStyle(ArtexTheme.dim).lineLimit(2)
+        } else {
+            list = remoteTasks.map { t in
+                Row(id: String(t.id), title: t.displayTitle, objective: t.objective ?? "",
+                    status: t.displayStatus, targets: 0, steps: 0, findings: 0,
+                    sev: (0, 0, 0), updated: t.updated_at?.date,
+                    category: t.category ?? "", localID: nil)
             }
         }
-        .padding(.vertical, 4)
+
+        // 搜索
+        let q = query.trimmingCharacters(in: .whitespaces).lowercased()
+        if !q.isEmpty {
+            list = list.filter {
+                $0.title.lowercased().contains(q) || $0.objective.lowercased().contains(q) || $0.id.lowercased().contains(q)
+            }
+        }
+        // 状态
+        if statusFilter != "全部状态" {
+            list = list.filter { statusLabel($0.status) == statusFilter }
+        }
+        // 归档 Tab
+        if activeTab == 1 {
+            list = list.filter { ["done", "failed", "stopped"].contains($0.status) }
+        } else {
+            list = list.filter { !["done", "failed", "stopped"].contains($0.status) || store.offlineMode }
+        }
+        return list
+    }
+
+    private var visibleCount: Int { rows.count }
+
+    private func taskCard(_ t: Row) -> some View {
+        NavigationLink {
+            if let lid = t.localID {
+                LocalTaskDetailView(taskID: lid)
+            } else {
+                RemoteTaskDetailView(taskID: Int64(t.id) ?? 0, title: t.title)
+            }
+        } label: {
+            VStack(alignment: .leading, spacing: 7) {
+                HStack(spacing: 8) {
+                    Circle().fill(statusTint(t.status)).frame(width: 6, height: 6)
+                    Text(t.title)
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundStyle(ArtexTheme.text)
+                        .lineLimit(1)
+                    Spacer()
+                    Pill(text: statusLabel(t.status), color: statusTint(t.status))
+                }
+
+                if !t.objective.isEmpty {
+                    Text(t.objective)
+                        .font(.system(size: 11))
+                        .foregroundStyle(ArtexTheme.dim)
+                        .lineLimit(2)
+                }
+
+                HStack(spacing: 10) {
+                    if t.targets > 0 { metric("scope", "\(t.targets)") }
+                    if t.steps > 0 { metric("list.number", "\(t.steps)") }
+                    if t.findings > 0 { metric("ladybug", "\(t.findings)") }
+                    Spacer()
+                    Text(fmtRel(t.updated)).font(.system(size: 9)).foregroundStyle(ArtexTheme.dim)
+                }
+
+                if t.sev.c + t.sev.h + t.sev.m > 0 {
+                    HStack(spacing: 5) {
+                        if t.sev.c > 0 { Pill(text: "C \(t.sev.c)", color: ArtexTheme.critical) }
+                        if t.sev.h > 0 { Pill(text: "H \(t.sev.h)", color: ArtexTheme.high) }
+                        if t.sev.m > 0 { Pill(text: "M \(t.sev.m)", color: ArtexTheme.medium) }
+                    }
+                }
+            }
+            .padding(12)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(ArtexTheme.surface)
+            .overlay(RoundedRectangle(cornerRadius: ArtexTheme.radius).stroke(ArtexTheme.border, lineWidth: 1))
+            .clipShape(RoundedRectangle(cornerRadius: ArtexTheme.radius))
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func metric(_ icon: String, _ v: String) -> some View {
+        HStack(spacing: 3) {
+            Image(systemName: icon).font(.system(size: 8))
+            Text(v).font(.system(size: 9, design: .monospaced))
+        }.foregroundStyle(ArtexTheme.dim)
     }
 
     private func statusLabel(_ s: String) -> String {
         switch s {
-        case "pending": return "待运行"
         case "running": return "运行中"
-        case "done": return "已完成"
-        case "failed": return "失败"
-        case "stopped": return "已停止"
+        case "pending": return "待运行"
+        case "done", "completed": return "已完成"
+        case "failed", "error": return "失败"
+        case "stopped", "paused": return "已停止"
         default: return s
         }
     }
 
-    private func localStatusColor(_ s: String) -> Color {
+    private func statusTint(_ s: String) -> Color {
         switch s {
-        case "running": return ArtexTheme.ok
-        case "done": return ArtexTheme.low
-        case "failed": return ArtexTheme.critical
-        case "stopped": return ArtexTheme.medium
-        default: return ArtexTheme.dim
-        }
-    }
-
-    private var visible: [TaskItem] {
-        filter == "全部" ? tasks : tasks.filter { ($0.status ?? "") == filter }
-    }
-
-    private func row(_ t: TaskItem) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
-            HStack {
-                Text(t.displayTitle).font(.system(size: 15, weight: .semibold)).foregroundStyle(ArtexTheme.text).lineLimit(1)
-                Spacer()
-                Pill(text: t.displayStatus, color: statusColor(t.displayStatus))
-            }
-            HStack(spacing: 10) {
-                Label(t.displayPhase, systemImage: "point.topleft.down.to.point.bottomright.curvepath")
-                Text(t.updated_at?.text ?? t.created_at?.text ?? "-")
-                Text("#\(t.id)")
-            }
-            .font(.system(size: 11, design: .monospaced)).foregroundStyle(ArtexTheme.dim)
-            if let obj = t.objective, !obj.isEmpty {
-                Text(obj).font(.system(size: 12)).foregroundStyle(ArtexTheme.dim).lineLimit(2)
-            }
-        }
-        .padding(.vertical, 4)
-    }
-
-    private func statusColor(_ s: String) -> Color {
-        switch s {
-        case "running": return ArtexTheme.ok
-        case "paused": return ArtexTheme.medium
+        case "running": return ArtexTheme.accent
+        case "pending": return ArtexTheme.dim
+        case "done", "completed": return ArtexTheme.ok
         case "failed", "error": return ArtexTheme.critical
-        case "done", "completed": return ArtexTheme.low
+        case "stopped", "paused": return ArtexTheme.medium
         default: return ArtexTheme.dim
         }
     }
 
     private func load() async {
+        guard !store.offlineMode else { return }
         loading = true
         defer { loading = false }
-        tasks = (try? await TaskAPI.list()) ?? []
+        remoteTasks = (try? await TaskAPI.list()) ?? []
     }
 }
 
-struct NewTaskView: View {
+// MARK: - 新建任务（对齐 SheetContent：名称/分类/描述/目标）
+struct NewTaskSheet: View {
     @Environment(\.dismiss) var dismiss
-    var onCreated: () async -> Void
-    @State private var title = ""
-    @State private var objective = ""
+    @ObservedObject private var localStore = LocalTaskStore.shared
+    @State private var name = ""
+    @State private var category = "Web 渗透"
+    @State private var description = ""
+    @State private var goal = ""
     @State private var scope = ""
-    @State private var busy = false
-    @State private var error: String?
     @State private var picked: [Skill] = []
 
+    private let categories = ["Web 渗透", "内网", "云原生", "红队", "其他"]
+
     var body: some View {
-        Group {
-            Form {
-                Section("基本信息") {
-                    TextField("任务标题", text: $title)
-                    TextField("目标（一句话）", text: $objective, axis: .vertical).lineLimit(2...4)
-                    TextField("范围，每行一个域名/IP/CIDR", text: $scope, axis: .vertical).lineLimit(3...8)
-                }
-                Section("套用技能编排（可选）") {
-                    NavigationLink {
-                        SkillPickerView(picked: $picked)
-                    } label: {
-                        HStack {
-                            Text("已选 \(picked.count) 项技能")
-                            Spacer()
-                            Image(systemName: "chevron.right").font(.system(size: 12)).foregroundStyle(ArtexTheme.dim)
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 18) {
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text("新建任务").font(.system(size: 17, weight: .semibold)).foregroundStyle(ArtexTheme.text)
+                        Text("填写测试对象与目标，高级参数可按需展开。")
+                            .font(.system(size: 11)).foregroundStyle(ArtexTheme.dim)
+                    }
+
+                    ArtexField(label: "名称（可选）",
+                               placeholder: "给任务起个便于识别的名字，例如：Acme 官网渗透",
+                               text: $name)
+
+                    VStack(alignment: .leading, spacing: 5) {
+                        Text("任务分类").font(.system(size: 11, weight: .medium)).foregroundStyle(ArtexTheme.text)
+                        FilterMenu(label: "选择分类", options: categories, selection: $category)
+                        Text("用于任务列表筛选和归档，不影响 Agent 执行。")
+                            .font(.system(size: 10)).foregroundStyle(ArtexTheme.dim)
+                    }
+
+                    ArtexField(label: "描述",
+                               placeholder: "测试对象与背景，例如：测试 example.com 这个站点",
+                               text: $description, multiline: true)
+
+                    ArtexField(label: "授权目标",
+                               placeholder: "每行一个域名 / IP，例如：
+example.com
+192.168.1.10",
+                               text: $scope, multiline: true,
+                               desc: "Agent 只测试这些目标")
+
+                    ArtexField(label: "目标",
+                               placeholder: "要达成什么，例如：拿下后台管理权限、获取服务器权限",
+                               text: $goal, multiline: true)
+
+                    // 技能编排
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("套用技能编排").font(.system(size: 11, weight: .medium)).foregroundStyle(ArtexTheme.text)
+                        NavigationLink { SkillPickerView(picked: $picked) } label: {
+                            HStack {
+                                Text(picked.isEmpty ? "未选择" : "已选 \(picked.count) 项")
+                                    .font(.system(size: 12)).foregroundStyle(ArtexTheme.text)
+                                Spacer()
+                                Image(systemName: "chevron.right").font(.system(size: 10)).foregroundStyle(ArtexTheme.dim)
+                            }
+                            .padding(.horizontal, 9).padding(.vertical, 9)
+                            .background(ArtexTheme.bg)
+                            .overlay(RoundedRectangle(cornerRadius: ArtexTheme.radiusSm).stroke(ArtexTheme.input, lineWidth: 0.8))
+                            .clipShape(RoundedRectangle(cornerRadius: ArtexTheme.radiusSm))
                         }
                     }
-                }
-                if !picked.isEmpty {
-                    Section("作战序列预览") {
-                        Text(Playbook(skills: picked).briefMarkdown)
-                            .font(.system(size: 11, design: .monospaced))
-                            .foregroundStyle(ArtexTheme.dim)
+
+                    if !LLMClient.shared.config.ready {
+                        HStack(spacing: 6) {
+                            Image(systemName: "exclamationmark.triangle").font(.system(size: 10))
+                            Text("还没配置模型，任务跑不起来").font(.system(size: 11))
+                            Spacer()
+                        }
+                        .foregroundStyle(ArtexTheme.medium)
+                        .padding(9)
+                        .background(ArtexTheme.medium.opacity(0.1))
+                        .clipShape(RoundedRectangle(cornerRadius: ArtexTheme.radiusSm))
                     }
                 }
-                if let error { Section { Text(error).foregroundStyle(ArtexTheme.critical) } }
+                .padding(16)
             }
-            .scrollContentBackground(.hidden)
             .background(ArtexTheme.bg)
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) { Button("取消") { dismiss() } }
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("取消") { dismiss() }.foregroundStyle(ArtexTheme.dim)
+                }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button(busy ? "创建中…" : "创建") { Task { await create() } }
-                        .disabled(busy || title.isEmpty)
+                    Button("创建") { create() }
+                        .font(.system(size: 12, weight: .semibold))
+                        .disabled(description.isEmpty && goal.isEmpty)
                 }
             }
+            .navigationBarTitleDisplayMode(.inline)
         }
     }
 
-    private func create() async {
-        busy = true; defer { busy = false }
-        let lines = scope.split(whereSeparator: \.isNewline).map { String($0).trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
-        var body = objective
-        if !picked.isEmpty {
-            body += "\n\n【技能编排】\n" + picked.map { "- \($0.n)(\($0.id)): \($0.d)" }.joined(separator: "\n")
-        }
-        do {
-            _ = try await TaskAPI.create(title: title, objective: body, scope: lines)
-            await onCreated()
-            dismiss()
-        } catch { self.error = error.localizedDescription }
+    private func create() {
+        let targets = scope.split(whereSeparator: \.isNewline)
+            .map { String($0).trimmingCharacters(in: .whitespaces) }
+            .filter { !$0.isEmpty }
+        let title = name.isEmpty ? (description.isEmpty ? "未命名任务" : String(description.prefix(24))) : name
+        let t = localStore.create(title: title,
+                                  objective: goal.isEmpty ? description : goal,
+                                  targets: targets,
+                                  skillIDs: picked.map { $0.id })
+        // 建完直接开跑
+        localStore.run(t.id)
+        dismiss()
     }
 }
 
-struct SkillPickerView: View {
-    @Binding var picked: [Skill]
-    @State private var query = ""
-    @State private var category: String?
-    private let lib = SkillLibrary.shared
+/// 远端任务详情（连服务端时）
+struct RemoteTaskDetailView: View {
+    let taskID: Int64
+    let title: String
+    @State private var detail: [String: AnyJSON] = [:]
+    @State private var findings: [Finding] = []
 
     var body: some View {
-        List {
-            ForEach(lib.filtered(category: category, query: query)) { s in
-                Button {
-                    if let i = picked.firstIndex(where: { $0.id == s.id }) { picked.remove(at: i) }
-                    else { picked.append(s) }
-                } label: {
-                    HStack(alignment: .top, spacing: 10) {
-                        Image(systemName: picked.contains(where: { $0.id == s.id }) ? "checkmark.circle.fill" : "circle")
-                            .foregroundStyle(picked.contains(where: { $0.id == s.id }) ? ArtexTheme.accent : ArtexTheme.dim)
-                        VStack(alignment: .leading, spacing: 3) {
-                            Text(s.n).font(.system(size: 14, weight: .medium)).foregroundStyle(ArtexTheme.text)
-                            Text(s.d).font(.system(size: 11)).foregroundStyle(ArtexTheme.dim).lineLimit(2)
-                            HStack(spacing: 6) {
-                                Pill(text: s.cat, color: ArtexTheme.low)
-                                Pill(text: s.phase, color: ArtexTheme.dim)
+        ScrollView {
+            VStack(spacing: 12) {
+                Card(title: "任务信息") {
+                    VStack(alignment: .leading, spacing: 6) {
+                        FieldRow(label: "ID", value: "#\(taskID)")
+                        FieldRow(label: "名称", value: title)
+                    }
+                }
+                Card(title: "发现 \(findings.count)") {
+                    if findings.isEmpty {
+                        EmptyHint(text: "暂无发现")
+                    } else {
+                        VStack(alignment: .leading, spacing: 6) {
+                            ForEach(findings) { f in
+                                HStack(spacing: 6) {
+                                    Pill(text: f.displaySeverity.uppercased(), color: ArtexTheme.severityColor(f.displaySeverity))
+                                    Text(f.displayTitle).font(.system(size: 11)).foregroundStyle(ArtexTheme.text).lineLimit(1)
+                                    Spacer()
+                                }
                             }
                         }
                     }
                 }
-                .listRowBackground(ArtexTheme.surface)
-            }
+            }.padding(16)
         }
-        .searchable(text: $query, prompt: "搜技能名 / 工具 / 标签")
-        .scrollContentBackground(.hidden)
         .background(ArtexTheme.bg)
-        .toolbar {
-            ToolbarItem(placement: .navigationBarTrailing) {
-                Menu {
-                    Button("全部") { category = nil }
-                    ForEach(lib.categories, id: \.0) { c in
-                        Button("\(c.0) (\(c.1))") { category = c.0 }
-                    }
-                } label: { Image(systemName: "line.3.horizontal.decrease.circle") }
-            }
+        .navigationTitle(title)
+        .navigationBarTitleDisplayMode(.inline)
+        .task {
+            detail = (try? await TaskAPI.detail(taskID)) ?? [:]
+            findings = (try? await FindingAPI.list(task: taskID)) ?? []
         }
     }
 }

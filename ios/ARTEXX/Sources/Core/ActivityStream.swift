@@ -2,6 +2,7 @@ import Foundation
 
 /// SSE 客户端：订阅 /api/exploration/activity/stream，用于仪表盘活动流。
 final class ActivityStream: NSObject, ObservableObject, URLSessionDataDelegate {
+    static let shared = ActivityStream()
     @Published private(set) var events: [ActivityEvent] = []
     @Published private(set) var connected = false
     @Published var lastError: String?
