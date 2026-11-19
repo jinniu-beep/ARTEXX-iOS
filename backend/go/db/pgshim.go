@@ -16,11 +16,8 @@ import (
 	"database/sql"
 	"database/sql/driver"
 	"encoding/json"
-	"fmt"
-	"os"
 	"reflect"
 	"regexp"
-	"strings"
 	"time"
 )
 
@@ -138,6 +135,10 @@ var (
 	// deduped by whole entry, not by port-preferring-service (a re-scanned port with
 	// new banner data can appear twice instead of merging).
 	reDistinctOnMerge = regexp.MustCompile(`(?is)\(\s*SELECT\s+ARRAY\(\s*SELECT\s+DISTINCT\s+ON\s+\(.*?\)\s+elem\s+FROM\s+unnest\(\s*([\w.]+)\s*\|\|\s*([\w.]+)\s*\)\s+AS\s+elem.*?\)\s*\)`)
+	// Postgres inet containment `net >>= addr` (SQLite tokenizes >>= as >> then =)
+	// → the registered inet_contains(net, addr) scalar. Runs after :: casts are
+	// stripped, so `$1::inet` is already `$1`.
+	reInetContains = regexp.MustCompile(`([\w.]+)\s*>>=\s*(try_inet\([^)]*\)|\$\d+|[\w.]+)`)
 )
 
 func rewriteSQL(q string) string {
@@ -165,8 +166,6 @@ func rewriteSQL(q string) string {
 	// element as JSON — a bare value would be stored double-encoded as a string.
 	q = reDistinctOnMerge.ReplaceAllString(q,
 		`(SELECT json_group_array(json(value)) FROM (SELECT value FROM json_each(COALESCE(${1},'[]')) UNION SELECT value FROM json_each(COALESCE(${2},'[]'))))`)
-	if os.Getenv("SHIM_DEBUG") != "" && strings.Contains(q, "INSERT INTO assets") && strings.Contains(q, "c_segment") {
-		fmt.Fprintf(os.Stderr, "[shim-debug] rewritten ip insert:\n%s\n[shim-debug-end]\n", q)
-	}
+	q = reInetContains.ReplaceAllString(q, `inet_contains(${1}, ${2})`)
 	return q
 }

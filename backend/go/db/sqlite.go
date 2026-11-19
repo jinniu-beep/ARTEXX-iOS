@@ -11,10 +11,20 @@ import (
 	"database/sql/driver"
 	_ "embed"
 	"fmt"
+	"net"
+	"strconv"
+	"strings"
 	"time"
 
 	sqlitelib "modernc.org/sqlite" // database/sql driver "sqlite" (pure Go, no cgo)
 )
+
+func boolToInt(b bool) int64 {
+	if b {
+		return 1
+	}
+	return 0
+}
 
 //go:embed schema_sqlite.sql
 var sqliteSchema string
@@ -45,6 +55,45 @@ func init() {
 			return nil, nil
 		}
 		return args[0], nil
+	})
+
+	// Postgres inet/CIDR helpers used by company/task scope resolution. The shim
+	// rewrites `net >>= addr` → inet_contains(net, addr); try_inet/masklen back the
+	// other scope queries.
+	sqlitelib.MustRegisterScalarFunction("try_inet", 1, func(_ *sqlitelib.FunctionContext, a []driver.Value) (driver.Value, error) {
+		if len(a) == 0 {
+			return nil, nil
+		}
+		return a[0], nil // pass-through; inet_contains tolerates invalid input
+	})
+	sqlitelib.MustRegisterScalarFunction("masklen", 1, func(_ *sqlitelib.FunctionContext, a []driver.Value) (driver.Value, error) {
+		s, _ := a[0].(string)
+		if i := strings.IndexByte(s, '/'); i >= 0 {
+			if n, err := strconv.Atoi(strings.TrimSpace(s[i+1:])); err == nil {
+				return int64(n), nil
+			}
+		}
+		if strings.Contains(s, ":") {
+			return int64(128), nil
+		}
+		return int64(32), nil
+	})
+	sqlitelib.MustRegisterScalarFunction("inet_contains", 2, func(_ *sqlitelib.FunctionContext, a []driver.Value) (driver.Value, error) {
+		netStr, _ := a[0].(string)
+		addrStr, _ := a[1].(string)
+		ip := net.ParseIP(strings.TrimSpace(addrStr))
+		if netStr == "" || ip == nil {
+			return int64(0), nil
+		}
+		if !strings.Contains(netStr, "/") { // bare IP → exact match
+			other := net.ParseIP(strings.TrimSpace(netStr))
+			return boolToInt(other != nil && other.Equal(ip)), nil
+		}
+		_, ipnet, err := net.ParseCIDR(strings.TrimSpace(netStr))
+		if err != nil || ipnet == nil {
+			return int64(0), nil
+		}
+		return boolToInt(ipnet.Contains(ip)), nil
 	})
 }
 

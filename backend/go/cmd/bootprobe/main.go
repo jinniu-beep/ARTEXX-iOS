@@ -98,7 +98,6 @@ func initAdmin(ts *httptest.Server) string {
 }
 
 func main() {
-	os.Setenv("SHIM_DEBUG", "1") // temporary: dump the rewritten ip insert SQL
 	dir, err := os.MkdirTemp("", "artexboot")
 	if err != nil {
 		fmt.Println("tempdir:", err)
