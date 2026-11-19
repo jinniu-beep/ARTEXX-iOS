@@ -32,6 +32,26 @@ jobs:
       - name: Generate skills SKILL.md tree (bundled)
         run: node scripts/skills-json-to-dirs.mjs
 
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Build web (static export → webui)
+        working-directory: web
+        env:
+          HUSKY: "0"
+          NEXT_EXPORT: "1"
+        run: |
+          set -euo pipefail
+          npm ci --no-audit --no-fund
+          npm run build:static
+          rm -rf ../ios/ARTEXX/Resources/webui
+          cp -r out ../ios/ARTEXX/Resources/webui
+          echo "webui files: $(find ../ios/ARTEXX/Resources/webui -type f | wc -l)"
+
       - name: Generate Xcode project (links libartex.a)
         run: node scripts/gen-xcodeproj.mjs
 

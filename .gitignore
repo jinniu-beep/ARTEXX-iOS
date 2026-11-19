@@ -34,3 +34,6 @@ web/.next/
 # but DO track the vendored frontend manifest/lockfile
 !web/package.json
 !web/package-lock.json
+
+# webui is built from web/ in CI
+ios/ARTEXX/Resources/webui/

@@ -282,3 +282,32 @@ html {
     -webkit-print-color-adjust: exact;
   }
 }
+
+/* ---- iOS / mobile adaptations ---- */
+html,
+body {
+  overscroll-behavior: none;
+}
+/* iOS auto-zooms when a <16px input is focused; pin to 16px on phones. */
+@media (max-width: 767px) {
+  input,
+  textarea,
+  select {
+    font-size: 16px;
+  }
+}
+/* full-height + safe-area helpers (apply where a view must fill the screen). */
+@supports (height: 100dvh) {
+  .h-app {
+    height: 100dvh;
+  }
+  .min-h-app {
+    min-height: 100dvh;
+  }
+}
+.pt-safe {
+  padding-top: env(safe-area-inset-top);
+}
+.pb-safe {
+  padding-bottom: env(safe-area-inset-bottom);
+}
