@@ -9,7 +9,6 @@ import (
 	"database/sql"
 	"fmt"
 	"os"
-	"strings"
 
 	_ "modernc.org/sqlite"
 )
@@ -40,32 +39,6 @@ func exec(db *sql.DB, q string, args ...any) error {
 	return err
 }
 
-// splitStatements splits DDL on ';' (safe here: the PG trigger/function bodies
-// that contain ';' were stripped during conversion). Comment-only / empty chunks
-// are dropped so they are not counted as "loaded".
-func splitStatements(s string) []string {
-	var out []string
-	for _, raw := range strings.Split(s, ";") {
-		t := strings.TrimSpace(raw)
-		if firstLine(t) == "" {
-			continue // empty or comment-only
-		}
-		out = append(out, t)
-	}
-	return out
-}
-
-// firstLine returns the first non-blank, non-comment line of a statement.
-func firstLine(s string) string {
-	for _, ln := range strings.Split(s, "\n") {
-		t := strings.TrimSpace(ln)
-		if t != "" && !strings.HasPrefix(t, "--") {
-			return t
-		}
-	}
-	return ""
-}
-
 func main() {
 	schemaPath := "../../backend/schema.sqlite.sql"
 	if len(os.Args) > 1 {
@@ -87,23 +60,14 @@ func main() {
 		fmt.Printf("  %-32s -> %q\n", p, out)
 	}
 
-	fmt.Println("## 1. load converted schema (per-statement, collect ALL errors)")
+	fmt.Println("## 1. load converted schema (single multi-statement Exec — the real path)")
 	schema, err := os.ReadFile(schemaPath)
 	if !check(fmt.Sprintf("read %s (%d bytes)", schemaPath, len(schema)), err) {
 		os.Exit(2)
 	}
-	stmts := splitStatements(string(schema))
-	loaded, stmtFails := 0, 0
-	for i, st := range stmts {
-		if _, err := db.Exec(st); err != nil {
-			stmtFails++
-			fails++
-			fmt.Printf("  [FAIL] stmt %d: %v\n           %s\n", i+1, err, firstLine(st))
-		} else {
-			loaded++
-		}
-	}
-	fmt.Printf("  %d statements: loaded=%d failed=%d\n", len(stmts), loaded, stmtFails)
+	// This is exactly what the iOS open layer will do. modernc runs the whole
+	// script, honoring BEGIN/COMMIT; it halts at the first error and names it.
+	check("schema loads in ONE Exec", exec(db, string(schema)))
 	var ntab int
 	_ = db.QueryRow(`SELECT count(*) FROM sqlite_master WHERE type='table'`).Scan(&ntab)
 	assert("all tables created", ntab >= 49, fmt.Sprintf("%d tables", ntab))
