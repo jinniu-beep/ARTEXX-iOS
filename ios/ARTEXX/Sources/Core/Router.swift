@@ -15,6 +15,14 @@ enum Router {
 
         let args: [String: Any] = (try? JSONSerialization.jsonObject(with: body) as? [String: Any]) ?? [:]
 
+        // /api/* 走接口路由；其余全部交给静态文件服务
+        if seg.first != "api" {
+            if let (data, mime) = StaticFiles.resolve(path: cleanPath) {
+                return (200, data, mime)
+            }
+            return (404, Data("not found".utf8), "text/plain; charset=utf-8")
+        }
+
         switch (method, seg.first ?? "") {
         case ("GET", "health"):
             return ok(["status": "ok", "version": "1.0.0", "embedded": true])

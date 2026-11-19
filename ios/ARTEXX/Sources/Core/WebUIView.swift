@@ -29,56 +29,12 @@ struct WebUIView: UIViewRepresentable {
         wv.scrollView.backgroundColor = wv.backgroundColor
         context.coordinator.webView = wv
 
-        // 注入：把 fetch 的 /api 请求指向本机端口
-        let js = """
-        (function(){
-          const BASE = 'http://127.0.0.1:8787';
-          const origFetch = window.fetch;
-          window.fetch = function(input, init){
-            try {
-              let url = (typeof input === 'string') ? input : (input && input.url) || '';
-              if (url.startsWith('/api/')) {
-                const full = BASE + url;
-                if (typeof input === 'string') input = full;
-                else input = new Request(full, input);
-              }
-            } catch(e) {}
-            return origFetch.call(this, input, init);
-          };
-          const OrigXHR = window.XMLHttpRequest;
-          window.XMLHttpRequest = function(){
-            const x = new OrigXHR();
-            const open = x.open;
-            x.open = function(m, u, ...rest){
-              if (typeof u === 'string' && u.startsWith('/api/')) u = BASE + u;
-              return open.call(x, m, u, ...rest);
-            };
-            return x;
-          };
-          window.XMLHttpRequest.prototype = OrigXHR.prototype;
-          // EventSource（SSE）
-          const OrigES = window.EventSource;
-          if (OrigES) {
-            window.EventSource = function(u, c){
-              if (typeof u === 'string' && u.startsWith('/api/')) u = BASE + u;
-              return new OrigES(u, c);
-            };
-            window.EventSource.prototype = OrigES.prototype;
-          }
-        })();
-        """
-        let script = WKUserScript(source: js, injectionTime: .atDocumentStart, forMainFrameOnly: false)
-        wv.configuration.userContentController.addUserScript(script)
-
-        // 加载打包的 index.html
-        if let index = Bundle.main.url(forResource: "index", withExtension: "html", subdirectory: "webui") {
-            wv.loadFileURL(index, allowingReadAccessTo: index.deletingLastPathComponent())
-        } else if let index = Bundle.main.url(forResource: "index", withExtension: "html") {
-            wv.loadFileURL(index, allowingReadAccessTo: index.deletingLastPathComponent())
-        } else {
-            let html = "<h1 style='color:#fff;font-family:-apple-system'>webui 资源未打包</h1>"
-            wv.loadHTMLString(html, baseURL: nil)
+        // 从内置服务加载（真实 origin，前端绝对路径与 /api 全部天然可用）
+        let port = EmbeddedServer.shared.port
+        if let url = URL(string: "http://127.0.0.1:\(port)/") {
+            wv.load(URLRequest(url: url))
         }
+        context.coordinator.startWatchdog()
         return wv
     }
 
@@ -87,6 +43,28 @@ struct WebUIView: UIViewRepresentable {
     final class Coordinator: NSObject, WKNavigationDelegate, WKUIDelegate {
         weak var webView: WKWebView?
         var proxy: LocalAPIProxy?
+        private var retries = 0
+
+        /// 服务端还没 ready 时自动重试加载
+        func startWatchdog() {
+            scheduleRetry()
+        }
+
+        private func scheduleRetry() {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { [weak self] in
+                guard let self, let wv = self.webView else { return }
+                if wv.url == nil || (wv.url?.scheme ?? "") != "http" {
+                    self.retries += 1
+                    if self.retries <= 15 {
+                        let port = EmbeddedServer.shared.port
+                        if let u = URL(string: "http://127.0.0.1:\(port)/") {
+                            wv.load(URLRequest(url: u))
+                        }
+                        self.scheduleRetry()
+                    }
+                }
+            }
+        }
 
         func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
             NSLog("[ARTEXX] Web UI loaded")
