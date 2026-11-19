@@ -195,6 +195,21 @@ func main() {
 	// time.Time→string fallback on read now that the shim coerces *_at columns.
 	get(ts, "/api/companies", token)
 
+	fmt.Println("## PG-dialect surfaces: stats / charts / search / notify / scheduling")
+	for _, p := range []string{
+		"/api/tokens/usage?days=30",                       // llm_usage to_char(ts AT TIME ZONE…)
+		"/api/tokens/daily?days=30",                       // to_char daily buckets
+		"/api/traffic?page=0&size=20",                     // traffic list
+		"/api/notify/meta",                                // EXTRACT(EPOCH FROM now()-min(created_at))
+		"/api/notify/channels",                            // notification channels
+		"/api/exploration/findings?q=sql&page=1&limit=20", // findings ILIKE search
+		"/api/assets?dsl=domain%3Dexample&limit=20",       // asset DSL (ILIKE / unnest)
+	} {
+		get(ts, p, token)
+	}
+	// createTask exercises make_interval(secs => $n) in the deadline CASE.
+	post(ts, "/api/tasks", token, `{"description":"probe task","goal":"enumerate the probe host"}`)
+
 	fmt.Println("## skills library (expect the 319 converted SKILL.md to load)")
 	checkSkillCount(ts, token)
 

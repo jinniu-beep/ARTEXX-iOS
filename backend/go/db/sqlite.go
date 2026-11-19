@@ -12,8 +12,10 @@ import (
 	_ "embed"
 	"fmt"
 	"net"
+	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	sqlitelib "modernc.org/sqlite" // database/sql driver "sqlite" (pure Go, no cgo)
@@ -95,6 +97,125 @@ func init() {
 		}
 		return boolToInt(ipnet.Contains(ip)), nil
 	})
+
+	// --- Postgres date/format/regex helpers used by stats, charts, notification
+	// scheduling and ICP scope matching. Registered so the shared PG SQL runs with
+	// minimal rewriting (the shim maps EXTRACT(EPOCH FROM x) → pg_epoch(x), strips
+	// AT TIME ZONE, etc.). All operate on SQLite's TEXT timestamps.
+
+	// pg_epoch(ts) → unix seconds (EXTRACT(EPOCH FROM ts)).
+	sqlitelib.MustRegisterScalarFunction("pg_epoch", 1, func(_ *sqlitelib.FunctionContext, a []driver.Value) (driver.Value, error) {
+		if len(a) == 0 {
+			return int64(0), nil
+		}
+		if t, ok := pgParseTime(a[0]); ok {
+			return t.Unix(), nil
+		}
+		return int64(0), nil
+	})
+
+	// to_char(ts, fmt) → formatted date string (YYYY/MM/DD/HH24/MI/SS tokens).
+	sqlitelib.MustRegisterScalarFunction("to_char", 2, func(_ *sqlitelib.FunctionContext, a []driver.Value) (driver.Value, error) {
+		s, _ := a[0].(string)
+		t, ok := pgParseTime(a[0])
+		if !ok {
+			return s, nil
+		}
+		f, _ := a[1].(string)
+		return t.Format(pgToGoLayout(f)), nil
+	})
+
+	// date_trunc(unit, ts) → ts truncated to unit (year/month/day/hour/minute).
+	sqlitelib.MustRegisterScalarFunction("date_trunc", 2, func(_ *sqlitelib.FunctionContext, a []driver.Value) (driver.Value, error) {
+		s, _ := a[1].(string)
+		t, ok := pgParseTime(a[1])
+		if !ok {
+			return s, nil
+		}
+		unit, _ := a[0].(string)
+		return truncTime(t, strings.ToLower(unit)).Format("2006-01-02 15:04:05"), nil
+	})
+
+	// regexp_replace(s, pattern, repl[, flags]) — POSIX classes like [[:space:]]
+	// work in Go's regexp; the 'g' flag is implicit (ReplaceAll is global).
+	sqlitelib.MustRegisterScalarFunction("regexp_replace", -1, func(_ *sqlitelib.FunctionContext, a []driver.Value) (driver.Value, error) {
+		if len(a) < 3 {
+			if len(a) > 0 {
+				return a[0], nil
+			}
+			return nil, nil
+		}
+		s, _ := a[0].(string)
+		pat, _ := a[1].(string)
+		repl, _ := a[2].(string)
+		re := cachedRegexp(pat)
+		if re == nil {
+			return s, nil
+		}
+		return re.ReplaceAllString(s, repl), nil
+	})
+}
+
+// pgParseTime parses a SQLite TEXT timestamp into time.Time (shares the shim's
+// layouts; also accepts []byte / time.Time).
+func pgParseTime(v driver.Value) (time.Time, bool) {
+	switch s := v.(type) {
+	case string:
+		return parseSQLiteTime(s)
+	case []byte:
+		return parseSQLiteTime(string(s))
+	case time.Time:
+		return s, true
+	}
+	return time.Time{}, false
+}
+
+// pgToGoLayout maps the Postgres to_char tokens used in the queries to a Go layout.
+func pgToGoLayout(f string) string {
+	return strings.NewReplacer(
+		"YYYY", "2006",
+		"HH24", "15",
+		"MM", "01",
+		"DD", "02",
+		"MI", "04",
+		"SS", "05",
+	).Replace(f)
+}
+
+func truncTime(t time.Time, unit string) time.Time {
+	switch unit {
+	case "year":
+		return time.Date(t.Year(), 1, 1, 0, 0, 0, 0, t.Location())
+	case "month":
+		return time.Date(t.Year(), t.Month(), 1, 0, 0, 0, 0, t.Location())
+	case "day":
+		return time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, t.Location())
+	case "hour":
+		return t.Truncate(time.Hour)
+	case "minute":
+		return t.Truncate(time.Minute)
+	}
+	return t
+}
+
+var (
+	reCacheMu sync.Mutex
+	reCache   = map[string]*regexp.Regexp{}
+)
+
+// cachedRegexp compiles once per pattern (ICP patterns are a tiny fixed set).
+func cachedRegexp(pat string) *regexp.Regexp {
+	reCacheMu.Lock()
+	defer reCacheMu.Unlock()
+	if re, ok := reCache[pat]; ok {
+		return re
+	}
+	re, err := regexp.Compile(pat)
+	if err != nil {
+		re = nil
+	}
+	reCache[pat] = re
+	return re
 }
 
 // Mode routing: on iOS, RunEmbedded calls SetSQLiteMode before opening stores so

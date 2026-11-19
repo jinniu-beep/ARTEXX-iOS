@@ -159,9 +159,28 @@ var (
 	// `X.extra || EXCLUDED.extra` (jsonb object merge in the asset upserts) →
 	// json_patch (SQLite `||` is string concat, which would corrupt the JSON).
 	reExtraMerge = regexp.MustCompile(`([\w.]+\.extra)\s*\|\|\s*(EXCLUDED\.extra)`)
+
+	// `$n::double precision` — reCast only handles single-word types, so strip this
+	// two-word PG type before reCast runs.
+	reDoublePrec = regexp.MustCompile(`::double precision`)
+	// PG case-insensitive LIKE → SQLite LIKE (already case-insensitive for ASCII).
+	reILIKE = regexp.MustCompile(`\bILIKE\b`)
+	// GREATEST/LEAST(a,b,…) → SQLite's scalar max/min.
+	reGreatest = regexp.MustCompile(`\bGREATEST\b`)
+	reLeast    = regexp.MustCompile(`\bLEAST\b`)
+	// `X AT TIME ZONE 'UTC'` → X (SQLite TEXT timestamps are already UTC).
+	reAtTimeZone = regexp.MustCompile(`\s+AT TIME ZONE\s+'[^']*'`)
+	// `EXTRACT(EPOCH FROM ` → `pg_epoch(` (registered); the original ')' closes it.
+	reExtractEpoch = regexp.MustCompile(`(?i)EXTRACT\s*\(\s*EPOCH\s+FROM\s+`)
+	// `now() ± make_interval(secs => $n)` → datetime('now', '±n seconds').
+	reMakeIntervalPlus  = regexp.MustCompile(`(?i)now\(\)\s*\+\s*make_interval\(\s*secs\s*=>\s*(\$\d+)\s*\)`)
+	reMakeIntervalMinus = regexp.MustCompile(`(?i)now\(\)\s*-\s*make_interval\(\s*secs\s*=>\s*(\$\d+)\s*\)`)
+	// `NOW() - ($n * INTERVAL '1 day')` → datetime('now', '-n days').
+	reIntervalDays = regexp.MustCompile(`(?i)now\(\)\s*-\s*\(\s*(\$\d+)\s*\*\s*INTERVAL\s+'1 day'\s*\)`)
 )
 
 func rewriteSQL(q string) string {
+	q = reDoublePrec.ReplaceAllString(q, "")
 	q = reCast.ReplaceAllString(q, "")
 	q = rePGTypes.ReplaceAllStringFunc(q, func(m string) string {
 		switch m {
@@ -188,6 +207,15 @@ func rewriteSQL(q string) string {
 		`(SELECT json_group_array(json(value)) FROM (SELECT value FROM json_each(COALESCE(${1},'[]')) UNION SELECT value FROM json_each(COALESCE(${2},'[]'))))`)
 	q = reInetContains.ReplaceAllString(q, `inet_contains(${1}, ${2})`)
 	q = reExtraMerge.ReplaceAllString(q, `json_patch(${1}, ${2})`)
+	// PG date/interval/text ops → SQLite equivalents (helpers registered in sqlite.go).
+	q = reAtTimeZone.ReplaceAllString(q, "")
+	q = reExtractEpoch.ReplaceAllString(q, "pg_epoch(")
+	q = reMakeIntervalPlus.ReplaceAllString(q, `datetime('now', '+'||(${1})||' seconds')`)
+	q = reMakeIntervalMinus.ReplaceAllString(q, `datetime('now', '-'||(${1})||' seconds')`)
+	q = reIntervalDays.ReplaceAllString(q, `datetime('now', '-'||(${1})||' days')`)
+	q = reILIKE.ReplaceAllString(q, "LIKE")
+	q = reGreatest.ReplaceAllString(q, "max")
+	q = reLeast.ReplaceAllString(q, "min")
 	return q
 }
 
