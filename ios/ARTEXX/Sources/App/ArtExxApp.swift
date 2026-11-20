@@ -17,6 +17,8 @@ struct ArtExxApp: App {
             }
         }
         UserDefaults.standard.set(true, forKey: "artex.webui.skipLogin")
+        // 后台保活：退到后台也让内置渗透任务继续跑（静音音频保活，侧载专用，耗电，默认开）。
+        BackgroundKeeper.shared.start()
         UINavigationBar.appearance().largeTitleTextAttributes = [.foregroundColor: UIColor.white]
     }
 
