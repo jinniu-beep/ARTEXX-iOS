@@ -1,0 +1,155 @@
+name: A0 Go iOS probe
+
+# Death-knell check for the "real Go backend on iOS" plan:
+# does the upstream Go module cross-compile for GOOS=ios/arm64 on a real
+# macOS + Xcode runner? Specifically modernc.org/sqlite (pure-Go SQLite) and
+# a c-archive build (the exact mechanism libartex.a will use).
+# Pure diagnostics: no app code is changed, nothing is shipped.
+
+on:
+  push:
+    paths:
+      - '.github/workflows/go-ios-probe.yml'
+  workflow_dispatch: {}
+
+jobs:
+  probe:
+    runs-on: macos-latest
+    timeout-minutes: 30
+    env:
+      UPSTREAM_REPO: https://github.com/imxv/ARTEXX.git
+      UPSTREAM_SHA: 178d250853ca743742807b74f857f5f483b3ddd7
+      GOOS: ios
+      GOARCH: arm64
+      CGO_ENABLED: "1"
+
+    steps:
+      - name: Checkout iOS repo
+        uses: actions/checkout@v4
+
+      - name: Clone upstream Go source (pinned)
+        run: |
+          set -euo pipefail
+          git clone --quiet "$UPSTREAM_REPO" _ref/ARTEXX
+          cd _ref/ARTEXX
+          git checkout --quiet "$UPSTREAM_SHA"
+          echo "upstream HEAD: $(git --no-pager log --oneline -1)"
+
+      - name: Setup Go (>= upstream go.mod directive)
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.26.x'
+          cache: false
+
+      - name: Toolchain + iOS SDK info
+        run: |
+          set -euo pipefail
+          go version
+          SDK="$(xcrun --sdk iphoneos --show-sdk-path)"
+          CLANG="$(xcrun --sdk iphoneos --find clang)"
+          echo "iphoneos SDK: $SDK"
+          echo "clang:        $CLANG"
+          {
+            echo "SDKROOT=$SDK"
+            echo "CC=$CLANG"
+            echo "CXX=$(xcrun --sdk iphoneos --find clang++)"
+            echo "CGO_CFLAGS=-arch arm64 -miphoneos-version-min=15.0 -isysroot $SDK"
+            echo "CGO_LDFLAGS=-arch arm64 -miphoneos-version-min=15.0 -isysroot $SDK"
+          } >> "$GITHUB_ENV"
+
+      - name: Download modules
+        working-directory: _ref/ARTEXX
+        run: go mod download
+
+      # ---- Probe 1: the death-knell dependency (pure-Go SQLite) --------------
+      - name: 'Probe 1 — modernc.org/sqlite for ios/arm64'
+        id: p1
+        working-directory: _ref/ARTEXX
+        continue-on-error: true
+        run: |
+          set +e
+          go build -tags ios modernc.org/sqlite modernc.org/libc 2>&1 | tee ../../probe1-modernc.log
+          code=${PIPESTATUS[0]}
+          echo "exit=$code" | tee -a ../../probe1-modernc.log
+          echo "p1=$code" >> "$GITHUB_OUTPUT"
+          exit 0
+
+      # ---- Probe 2: full first-party package enumeration --------------------
+      # Expected to report failures in exec/pgx packages (selfupdate, customtool,
+      # db, server/engine) — that enumerates exactly the build-tag work for A2.
+      - name: 'Probe 2 — go build ./... (enumerate first-party blockers)'
+        id: p2
+        working-directory: _ref/ARTEXX
+        continue-on-error: true
+        run: |
+          set +e
+          go build -tags ios ./... 2>&1 | tee ../../probe2-firstparty.log
+          code=${PIPESTATUS[0]}
+          echo "exit=$code" | tee -a ../../probe2-firstparty.log
+          echo "p2=$code" >> "$GITHUB_OUTPUT"
+          exit 0
+
+      # ---- Probe 3: c-archive (the exact libartex.a mechanism) --------------
+      - name: 'Probe 3 — c-archive build with modernc + miekg/dns'
+        id: p3
+        working-directory: _ref/ARTEXX
+        continue-on-error: true
+        run: |
+          set +e
+          mkdir -p cmd/iosprobe
+          {
+            printf 'package main\n\n'
+            printf '/*\n#include <stdlib.h>\n*/\n'
+            printf 'import "C"\n\n'
+            printf 'import (\n\t_ "github.com/miekg/dns"\n\t_ "modernc.org/sqlite"\n)\n\n'
+            printf '//export Probe\nfunc Probe() C.int { return 0 }\n\n'
+            printf 'func main() {}\n'
+          } > cmd/iosprobe/main.go
+          echo '--- generated cmd/iosprobe/main.go ---'
+          cat cmd/iosprobe/main.go
+          echo '--------------------------------------'
+          go build -buildmode=c-archive -trimpath -ldflags="-s -w" \
+            -tags ios -o /tmp/libprobe.a ./cmd/iosprobe 2>&1 | tee ../../probe3-carchive.log
+          code=${PIPESTATUS[0]}
+          echo "exit=$code" | tee -a ../../probe3-carchive.log
+          echo "--- artifacts ---" | tee -a ../../probe3-carchive.log
+          ls -lh /tmp/libprobe.a /tmp/libprobe.h 2>&1 | tee -a ../../probe3-carchive.log || true
+          file /tmp/libprobe.a 2>&1 | tee -a ../../probe3-carchive.log || true
+          echo "p3=$code" >> "$GITHUB_OUTPUT"
+          exit 0
+
+      - name: Upload probe logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: go-ios-probe-logs
+          path: probe*.log
+          retention-days: 14
+
+      - name: Verdict
+        if: always()
+        run: |
+          p1="${{ steps.p1.outputs.p1 }}"
+          p2="${{ steps.p2.outputs.p2 }}"
+          p3="${{ steps.p3.outputs.p3 }}"
+          ok() { [ "$1" = "0" ] && echo "✅ PASS (exit 0)" || echo "❌ FAIL (exit $1)"; }
+          {
+            echo "# A0 Go iOS probe — verdict"
+            echo ""
+            echo "| Probe | What it proves | Result |"
+            echo "| --- | --- | --- |"
+            echo "| 1 · modernc.org/sqlite (-tags ios) | pure-Go SQLite compiles for ios/arm64 | $(ok "$p1") |"
+            echo "| 2 · go build ./... | first-party blocker enumeration (fails expected) | exit $p2 — see log |"
+            echo "| 3 · c-archive + modernc + dns | the exact libartex.a mechanism links | $(ok "$p3") |"
+            echo ""
+            if [ "$p3" = "0" ]; then
+              echo "**Make-or-break: PASS.** The in-process Go-backend-on-iOS architecture is viable; proceed to A1/A2."
+            elif [ "$p1" = "0" ]; then
+              echo "**Partial.** modernc compiles but c-archive link failed — inspect probe3 log before committing to the architecture."
+            else
+              echo "**Make-or-break: FAIL.** modernc.org/sqlite does not build for ios/arm64 — the pure-Go SQLite plan needs rethinking (cgo SQLite or architecture change) before any further code."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+          echo "p1=$p1 p2=$p2 p3=$p3"
+          # Job is red unless the death-knell c-archive probe passed.
+          [ "$p3" = "0" ]
