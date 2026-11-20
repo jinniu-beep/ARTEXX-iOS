@@ -7,9 +7,18 @@ struct ArtExxApp: App {
     init() {
         // 数据库在后台解压，不阻塞启动
         CVEDatabase.shared.bootstrap()
-        // 内置服务：同时提供原版 Web UI 静态文件 + /api 接口
-        EmbeddedServer.shared.start()
+        // 关键：后端必须在后台线程启动，绝不能卡主线程。
+        // 首次启动时 ArtexStart 会跑 SQLite 建库 + seed + 拷 319 个技能文件（数秒的 I/O），
+        // 若在 init() 主线程同步跑，会被 iOS 看门狗判定启动超时直接杀进程 → 一开就闪退、反复弹。
+        // WebView 已有对 127.0.0.1:8787 的失败重连，所以后台起服务不影响首屏加载。
+        DispatchQueue.global(qos: .userInitiated).async {
+            if !GoBackend.shared.start(port: 8787) {
+                EmbeddedServer.shared.start()
+            }
+        }
         UserDefaults.standard.set(true, forKey: "artex.webui.skipLogin")
+        // 后台保活：退到后台也让内置渗透任务继续跑（静音音频保活，侧载专用，耗电，默认开）。
+        BackgroundKeeper.shared.start()
         UINavigationBar.appearance().largeTitleTextAttributes = [.foregroundColor: UIColor.white]
     }
 

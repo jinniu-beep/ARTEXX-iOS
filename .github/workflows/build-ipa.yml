@@ -20,10 +20,47 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.26.x'
+          cache: false
+
+      - name: Build Go backend (libartex.a)
+        run: bash backend/go/build-go.sh
+
+      - name: Generate skills SKILL.md tree (bundled)
+        run: node scripts/skills-json-to-dirs.mjs
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Build web (static export → webui)
+        working-directory: web
+        env:
+          HUSKY: "0"
+          NEXT_EXPORT: "1"
+        run: |
+          set -euo pipefail
+          npm ci --no-audit --no-fund
+          npm run build:static
+          rm -rf ../ios/ARTEXX/Resources/webui
+          cp -r out ../ios/ARTEXX/Resources/webui
+          echo "webui files: $(find ../ios/ARTEXX/Resources/webui -type f | wc -l)"
+
+      - name: Generate Xcode project (links libartex.a)
+        run: node scripts/gen-xcodeproj.mjs
+
       - name: Toolchain info
         run: |
           xcodebuild -version
           swift --version
+          echo "--- Go archive ---"
+          ls -lh ios/ARTEXX/Go/ || true
           echo "--- bundled resources ---"
           ls -lh ios/ARTEXX/Resources/ || true
 

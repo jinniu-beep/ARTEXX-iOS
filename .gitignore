@@ -19,3 +19,21 @@ Thumbs.db
 node_modules/
 package.json
 package-lock.json
+
+# Go backend build output (built in CI, never committed)
+ios/ARTEXX/Go/
+
+# generated from skills.json (built in CI)
+ios/ARTEXX/Resources/skills/
+
+# vendored Next.js frontend build artifacts
+web/node_modules/
+web/out/
+web/.next/
+
+# but DO track the vendored frontend manifest/lockfile
+!web/package.json
+!web/package-lock.json
+
+# webui is built from web/ in CI
+ios/ARTEXX/Resources/webui/

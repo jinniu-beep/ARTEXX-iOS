@@ -1,0 +1,53 @@
+name: A3 SQLite dialect probe
+
+# Host-run diagnostic (modernc.org/sqlite is pure Go — ubuntu is fine, no Xcode):
+# does the converted schema load, and do $N placeholders bind like pgx? This
+# gates whether the 751 existing $N query sites can stay as-is.
+
+on:
+  push:
+    paths:
+      - 'backend/go/**'
+      - 'backend/schema.sqlite.sql'
+      - 'scripts/skills-json-to-dirs.mjs'
+      - 'ios/ARTEXX/Resources/skills.json'
+      - '.github/workflows/sqlite-probe.yml'
+  workflow_dispatch: {}
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.26.x'
+          cache: false
+
+      - name: Schema copy in sync (root == embedded)
+        run: diff backend/schema.sqlite.sql backend/go/db/schema_sqlite.sql
+
+      - name: Run SQLite dialect probe
+        working-directory: backend/go
+        run: go run ./cmd/sqliteprobe ../../backend/schema.sqlite.sql
+
+      - name: Test iOS native net tools (pure-Go, no shell)
+        working-directory: backend/go
+        run: go test ./agent/ -run 'ParsePortSpec|HTTPRequestTool|PortScanTool|DNSLookupTool|NativeNetTools' -count=1 -v
+
+      - name: Generate skills SKILL.md tree
+        run: node scripts/skills-json-to-dirs.mjs
+
+      - name: Decompress CVE db
+        run: gunzip -k -f ios/ARTEXX/Resources/cve.sqlite.gz
+
+      - name: Run full-boot probe (NewManager -> Handler on SQLite)
+        working-directory: backend/go
+        env:
+          SKILLS_DIR: ${{ github.workspace }}/ios/ARTEXX/Resources/skills
+          CVE_DB: ${{ github.workspace }}/ios/ARTEXX/Resources/cve.sqlite
+        run: go run ./cmd/bootprobe

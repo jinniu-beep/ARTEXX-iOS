@@ -670,7 +670,7 @@ CREATE INDEX IF NOT EXISTS idx_ts_company ON task_scope(company_id) WHERE kind =
 -- =====================================================================
 CREATE TABLE IF NOT EXISTS agents (
     id                INTEGER PRIMARY KEY AUTOINCREMENT,
-    key               TEXT NOT NULL UNIQUE CHECK (key ~ '^[a-z][a-z0-9_]*$'),
+    key               TEXT NOT NULL UNIQUE,
     name              TEXT NOT NULL,
     description       TEXT,
     role              TEXT NOT NULL,

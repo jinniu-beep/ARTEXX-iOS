@@ -1,0 +1,57 @@
+name: Build Go backend (libartex.a)
+
+# A1: cross-compile the REAL ARTEX backend (vendored at backend/go, driven by
+# cmd/artex-ios → server.RunEmbedded) into libartex.a on a macOS + Xcode runner.
+# This proves the full server graph c-archives for iOS, not just the deps.
+# Xcode linking + Swift integration land in a later step.
+
+on:
+  push:
+    paths:
+      - 'backend/go/**'
+      - '.github/workflows/build-go.yml'
+  workflow_dispatch: {}
+
+jobs:
+  build-go:
+    runs-on: macos-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.26.x'
+          cache: false
+
+      - name: Toolchain info
+        run: |
+          go version
+          xcodebuild -version
+          echo "iphoneos SDK: $(xcrun --sdk iphoneos --show-sdk-path)"
+
+      - name: Download modules
+        working-directory: backend/go
+        run: go mod download
+
+      - name: Build libartex.a (ios/arm64 c-archive)
+        run: bash backend/go/build-go.sh
+
+      - name: Inspect artifact
+        run: |
+          set -euo pipefail
+          ls -lh ios/ARTEXX/Go/
+          echo "--- exported symbols (ArtexStart / ArtexStop) ---"
+          nm ios/ARTEXX/Go/libartex.a 2>/dev/null | grep -iE '_ArtexStart|_ArtexStop' || true
+          echo "--- libartex.h head ---"
+          sed -n '1,40p' ios/ARTEXX/Go/libartex.h
+
+      - name: Upload libartex
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: libartex
+          path: ios/ARTEXX/Go/*
+          retention-days: 14
