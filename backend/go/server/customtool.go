@@ -17,6 +17,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Autumn-27/artex/agent"
 	"github.com/Autumn-27/artex/db"
 	"github.com/Autumn-27/norma/permission"
 	actool "github.com/Autumn-27/norma/tool"
@@ -329,6 +330,9 @@ func ensureSchema(raw json.RawMessage) map[string]any {
 // ---------- command:渲染命令 → 复用 Bash 底层 run ----------
 
 func (s *Server) runCommandTool(ctx context.Context, execRaw json.RawMessage, params map[string]any, tc *actool.ToolContext) (actool.Result, error) {
+	if agent.NoShell {
+		return actool.Errorf("本环境（iOS）禁止执行 shell 命令：沙箱不允许 fork/exec，bash/外部工具跑不起来。请改用 http_request / port_scan / dns_lookup 等内置网络工具完成。"), nil
+	}
 	var spec commandExec
 	_ = json.Unmarshal(execRaw, &spec)
 	if strings.TrimSpace(spec.Command) == "" {
@@ -349,6 +353,9 @@ func (s *Server) runCommandTool(ctx context.Context, execRaw json.RawMessage, pa
 // ---------- script(仅 Python):临时文件 + stdin JSON + env ----------
 
 func (s *Server) runScriptTool(ctx context.Context, key string, execRaw json.RawMessage, params map[string]any, tc *actool.ToolContext) (actool.Result, error) {
+	if agent.NoShell {
+		return actool.Errorf("本环境（iOS）禁止运行 python 脚本：沙箱不允许 fork/exec。请改用 http_request / port_scan / dns_lookup 等内置网络工具完成。"), nil
+	}
 	var spec scriptExec
 	_ = json.Unmarshal(execRaw, &spec)
 	if strings.TrimSpace(spec.Code) == "" {

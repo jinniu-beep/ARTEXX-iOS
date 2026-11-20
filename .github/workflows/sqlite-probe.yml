@@ -35,6 +35,10 @@ jobs:
         working-directory: backend/go
         run: go run ./cmd/sqliteprobe ../../backend/schema.sqlite.sql
 
+      - name: Test iOS native net tools (pure-Go, no shell)
+        working-directory: backend/go
+        run: go test ./agent/ -run 'ParsePortSpec|HTTPRequestTool|PortScanTool|DNSLookupTool|NativeNetTools' -count=1 -v
+
       - name: Generate skills SKILL.md tree
         run: node scripts/skills-json-to-dirs.mjs
 

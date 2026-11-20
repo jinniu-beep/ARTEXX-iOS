@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/Autumn-27/artex/agent"
 	pgdb "github.com/Autumn-27/artex/db"
 )
 
@@ -38,6 +39,11 @@ func RunEmbedded(ctx context.Context, port int, dataDir, webuiDir string) error 
 
 	// Route the data layer to SQLite before opening stores — iOS has no Postgres.
 	pgdb.SetSQLiteMode(filepath.Join(dataDir, "artex.sqlite"))
+
+	// iOS sandbox forbids fork/exec: drop the Bash tool and swap in the pure-Go
+	// network tools (http_request/port_scan/dns_lookup); shell/python custom tools
+	// return a clear "use the native tools" message instead of hanging on retries.
+	agent.SetNoShell(true)
 
 	// CVE knowledge base: the Swift shell unpacks cve.sqlite.gz here on first launch.
 	SetCVEStore(filepath.Join(dataDir, "cve.sqlite"))

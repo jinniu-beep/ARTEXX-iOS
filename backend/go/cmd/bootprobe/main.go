@@ -17,6 +17,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/Autumn-27/artex/agent"
 	pgdb "github.com/Autumn-27/artex/db"
 	"github.com/Autumn-27/artex/server"
 )
@@ -132,6 +133,7 @@ func main() {
 
 	fmt.Println("## boot the real server on SQLite (the iOS path)")
 	pgdb.SetSQLiteMode(filepath.Join(dir, "artex.sqlite"))
+	agent.SetNoShell(true) // exercise the iOS tool profile (no Bash, pure-Go net tools)
 
 	mgr, err := server.NewManager(dir, "")
 	if err != nil {
